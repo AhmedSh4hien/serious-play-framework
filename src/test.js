@@ -1,4 +1,5 @@
 import Matter from "matter-js";
+import { ATOM_TYPES } from "./atomsConfig.js";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -10,21 +11,43 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
+//randomize at spawn
+const ATOM_TYPE_IDS = ["H", "O", "Cl"];
+
+function randomAtomTypeId() {
+  const i = Math.floor(Math.random() * ATOM_TYPE_IDS.length);
+  return ATOM_TYPE_IDS[i];
+}
+
 // Atom
 const atoms = [];
 const atomCount = 500;
+let currentAtomType = "H"; // default selected element
+
+const moleculeCounts = {
+  H2: 0,
+  Cl2: 0,
+  HCl: 0,
+};
+
+const bonds = []; // each item: { aId, bId }
 
 for (let i = 0; i < atomCount; i++) {
+  const typeId = randomAtomTypeId();
+  const def = ATOM_TYPES[typeId];
+
   atoms.push({
     id: i,
-    state: "floating", // later can be "physical"
+    typeId: def.id,
+    currentBonds: 0,
+    state: "floating",
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
     vx: (Math.random() - 0.5) * 2,
     vy: (Math.random() - 0.5) * 2,
-    radius: 8,
-    color: "#4fd5ff",
-    body: null, // reserved for Matter
+    radius: def.radius,
+    color: def.color,
+    body: null,
   });
 }
 
@@ -61,6 +84,25 @@ function updateFloating(dt) {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // draw bonds first
+  ctx.lineWidth = 3;
+  for (const bond of bonds) {
+    const a = atoms[bond.aId];
+    const b = atoms[bond.bId];
+    if (!a || !b) continue;
+
+    // pick color by molecule
+    if (bond.molecule === "H2") ctx.strokeStyle = "#4f8fff"; // blue
+    else if (bond.molecule === "Cl2") ctx.strokeStyle = "#33aa33"; // green
+    else if (bond.molecule === "HCl") ctx.strokeStyle = "#aa33aa"; // purple
+    else ctx.strokeStyle = "#888888";
+
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
   for (const a of atoms) {
     ctx.beginPath();
     ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
@@ -77,6 +119,12 @@ function draw() {
 
   ctx.fillStyle = "#000000";
   ctx.fillText(`Atoms: ${atoms.length}`, 10, 40);
+
+  ctx.fillText(`Current: ${currentAtomType}`, 10, 60);
+  ctx.fillText(`Current: ${currentAtomType}`, 10, 60);
+  ctx.fillText(`H2: ${moleculeCounts.H2}`, 10, 80);
+  ctx.fillText(`Cl2: ${moleculeCounts.Cl2}`, 10, 100);
+  ctx.fillText(`HCl: ${moleculeCounts.HCl}`, 10, 120);
 }
 
 let lastTime = performance.now();
@@ -132,10 +180,29 @@ function handleFloatingCollisions() {
       const dist2 = dx * dx + dy * dy;
       const r = a.radius + b.radius;
 
+      if (!canBond(a, b)) continue;
+
       if (dist2 < (r + threshold) * (r + threshold)) {
+        // logical bond
+
+        const molecule = getPairMolecule(a, b);
+        if (molecule) {
+          // for now just log it, later hook into scoring/telemetry
+          console.log("Molecule formed:", molecule, "from", a.id, b.id);
+        } else continue;
+        moleculeCounts[molecule] = (moleculeCounts[molecule] || 0) + 1;
+
+        a.currentBonds++;
+        b.currentBonds++;
+
+        // store this bond with its molecule type
+        bonds.push({ aId: a.id, bId: b.id, molecule });
+
         // mark them as 'ready' to become physical
         a.state = "toPhysical";
         b.state = "toPhysical";
+
+        // optional: color by type but darker when bonded
         a.color = "#ffcc4f";
         b.color = "#ffcc4f";
       }
@@ -203,16 +270,26 @@ canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 window.addEventListener("resize", handleResize);
 
+window.addEventListener("keydown", (e) => {
+  if (e.key === "1") currentAtomType = "H";
+  if (e.key === "2") currentAtomType = "O";
+  if (e.key === "3") currentAtomType = "Cl";
+});
+
 function spawnAtomAt(x, y) {
+  const def = ATOM_TYPES[currentAtomType];
+
   const atom = {
     id: atoms.length,
+    typeId: def.id,
+    currentBonds: 0,
     state: "floating",
     x,
     y,
     vx: (Math.random() - 0.5) * 2,
     vy: (Math.random() - 0.5) * 2,
-    radius: 8,
-    color: "#4fd5ff",
+    radius: def.radius,
+    color: def.color,
     body: null,
   };
   atoms.push(atom);
@@ -227,4 +304,23 @@ function handleResize() {
     x: window.innerWidth / 2,
     y: window.innerHeight + 40,
   });
+}
+
+function canBond(a, b) {
+  const defA = ATOM_TYPES[a.typeId];
+  const defB = ATOM_TYPES[b.typeId];
+
+  if (a.currentBonds >= defA.maxBonds) return false;
+  if (b.currentBonds >= defB.maxBonds) return false;
+  return true;
+}
+
+function getPairMolecule(a, b) {
+  const types = [a.typeId, b.typeId].sort().join("-");
+
+  if (types === "H-H") return "H2";
+  if (types === "Cl-Cl") return "Cl2";
+  if (types === "Cl-H") return "HCl";
+  // later: handle H2O when you have 3 atoms bonded
+  return null;
 }
