@@ -6,6 +6,7 @@ export function canBond(a, b) {
 
   if (a.currentBonds >= defA.maxBonds) return false;
   if (b.currentBonds >= defB.maxBonds) return false;
+
   return true;
 }
 
@@ -15,5 +16,7 @@ export function getPairMolecule(a, b) {
   if (types === "H-H") return "H2";
   if (types === "Cl-Cl") return "Cl2";
   if (types === "Cl-H") return "HCl";
+  if (types === "O-O") return "O2";
+
   return null;
 }

@@ -4,13 +4,14 @@ export function draw(canvas, ctx, state) {
     // Bonds first
     ctx.lineWidth = 3;
     for (const bond of state.bonds) {
-      const a = state.atoms[bond.aId];
-      const b = state.atoms[bond.bId];
+      const a = state.atomById.get(bond.aId); // NEW
+      const b = state.atomById.get(bond.bId); // NEW
       if (!a || !b) continue;
   
       if (bond.molecule === "H2") ctx.strokeStyle = "#4f8fff";
       else if (bond.molecule === "Cl2") ctx.strokeStyle = "#33aa33";
       else if (bond.molecule === "HCl") ctx.strokeStyle = "#aa33aa";
+      else if (bond.molecule === "O2") ctx.strokeStyle = "#ff8800";
       else ctx.strokeStyle = "#888888";
   
       ctx.beginPath();
@@ -44,5 +45,6 @@ export function draw(canvas, ctx, state) {
     ctx.fillText(`H2: ${state.moleculeCounts.H2}`, 10, 80);
     ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
     ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
+    ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
   }
   

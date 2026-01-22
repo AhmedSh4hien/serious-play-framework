@@ -33,6 +33,7 @@ const moleculeCounts = {
   H2: 0,
   Cl2: 0,
   HCl: 0,
+  O2: 0
 };
 
 const bonds = []; // each item: { aId, bId }

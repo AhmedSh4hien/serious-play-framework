@@ -4,11 +4,10 @@ export function createPhysics(canvas) {
   const engine = Matter.Engine.create();
   engine.gravity.x = 0;
   engine.gravity.y = 0;
-  engine.gravity.scale = 0; // fully disable gravity
+  engine.gravity.scale = 0;
 
   const world = engine.world;
 
-  // Keep your ground for now (harmless with gravity off, still can act as boundary)
   const ground = Matter.Bodies.rectangle(
     canvas.width / 2,
     canvas.height + 40,
@@ -23,8 +22,6 @@ export function createPhysics(canvas) {
 
 export function handleResizePhysics(physics, canvas) {
   const { Matter, ground } = physics;
-
-  // move floor to new bottom and keep it very wide
   Matter.Body.setPosition(ground, {
     x: canvas.width / 2,
     y: canvas.height + 40,
@@ -43,12 +40,13 @@ export function convertToPhysical(physics, state) {
       restitution: 0.6,
     });
 
-    // carry over current motion
     Matter.Body.setVelocity(body, { x: a.vx, y: a.vy });
-
     Matter.World.add(world, body);
+
     a.body = body;
     a.state = "physical";
+
+    if (state._bodyToAtom) state._bodyToAtom.set(body.id, a);
   }
 }
 
@@ -57,8 +55,8 @@ export function ensureBondConstraints(physics, state) {
   const Constraint = Matter.Constraint;
 
   for (const bond of state.bonds) {
-    const a = state.atoms[bond.aId];
-    const b = state.atoms[bond.bId];
+    const a = state.atomById.get(bond.aId);
+    const b = state.atomById.get(bond.bId);
     if (!a || !b) continue;
     if (!a.body || !b.body) continue;
     if (bond.constraint) continue;
@@ -77,13 +75,11 @@ export function ensureBondConstraints(physics, state) {
 
 export function updatePhysical(physics, state) {
   const { Matter, engine } = physics;
-
   Matter.Engine.update(engine, 1000 / 60);
 
   for (const a of state.atoms) {
     if (!a.body) continue;
 
-    // small random nudges to keep things alive (0 by default)
     const jitter = 0.0;
     Matter.Body.applyForce(a.body, a.body.position, {
       x: (Math.random() - 0.5) * jitter,
@@ -109,4 +105,23 @@ export function createBondConstraint(physics, a, b) {
 
   Matter.World.add(world, constraint);
   return constraint;
+}
+
+export function installCollisionBonding(physics, state, _chemistry, onBond) {
+  const { Matter, engine } = physics;
+
+  const bodyToAtom = new Map();
+  for (const a of state.atoms) {
+    if (a.body) bodyToAtom.set(a.body.id, a);
+  }
+  state._bodyToAtom = bodyToAtom;
+
+  Matter.Events.on(engine, "collisionStart", (event) => {
+    for (const pair of event.pairs) {
+      const a = bodyToAtom.get(pair.bodyA.id);
+      const b = bodyToAtom.get(pair.bodyB.id);
+      if (!a || !b) continue;
+      onBond(a, b);
+    }
+  });
 }

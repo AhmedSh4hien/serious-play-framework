@@ -8,6 +8,7 @@ import {
   ensureBondConstraints,
   updatePhysical,
   createBondConstraint,
+  installCollisionBonding 
 } from "./physics.js";
 import { draw } from "./render.js";
 
@@ -25,6 +26,43 @@ window.addEventListener("resize", () => {
 });
 resizeCanvas();
 
+function alreadyBonded(a, b) {
+  return state.bonds.some(
+    (x) =>
+      (x.aId === a.id && x.bId === b.id) ||
+      (x.aId === b.id && x.bId === a.id)
+  );
+}
+
+function onBond(a, b) {
+  // only bond physical bodies
+  if (!a.body || !b.body) return;
+
+  // prevent spam / duplicates
+  if (alreadyBonded(a, b)) return;
+
+  // chemistry gate
+  if (!canBond(a, b)) return;
+
+  const molecule = getPairMolecule(a, b);
+  if (!molecule) return;
+
+  // apply bond
+  a.currentBonds++;
+  b.currentBonds++;
+
+  state.moleculeCounts[molecule] = (state.moleculeCounts[molecule] || 0) + 1;
+
+  const bond = { aId: a.id, bId: b.id, molecule, constraint: null };
+  state.bonds.push(bond);
+
+  // create constraint immediately (both have bodies)
+  bond.constraint = createBondConstraint(physics, a, b);
+
+  console.log("Molecule formed:", molecule, "from", a.id, b.id);
+}
+
+
 // ----- Random atom spawn at start -----
 const ATOM_TYPE_IDS = ["H", "O", "Cl"];
 function randomAtomTypeId() {
@@ -34,16 +72,17 @@ function randomAtomTypeId() {
 
 // ----- Init atoms -----
 const atomCount = 500;
+state.nextAtomId = 0;
 
 for (let i = 0; i < atomCount; i++) {
   const typeId = randomAtomTypeId();
   const def = ATOM_TYPES[typeId];
 
-  state.atoms.push({
-    id: i,
+  const atom = {
+    id: state.nextAtomId++,
     typeId: def.id,
     currentBonds: 0,
-    state: "floating",
+    state: "toPhysical",
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
     vx: (Math.random() - 0.5) * 2,
@@ -51,12 +90,26 @@ for (let i = 0; i < atomCount; i++) {
     radius: def.radius,
     color: def.color,
     body: null,
-  });
+  };
+
+  state.atoms.push(atom);
+  state.atomById.set(atom.id, atom); 
 }
+
+
+for (const a of state.atoms) a.state = "toPhysical";
 
 // ----- Matter -----
 const physics = createPhysics(canvas);
 handleResizePhysics(physics, canvas);
+
+// create bodies once so the collision map has something to register
+convertToPhysical(physics, state);
+ensureBondConstraints(physics, state);
+
+// now install collision events
+installCollisionBonding(physics, state, { canBond, getPairMolecule }, onBond);
+
 
 // ----- Input -----
 canvas.addEventListener("mousedown", (e) => {
@@ -94,10 +147,10 @@ function spawnAtomAt(x, y) {
   const def = ATOM_TYPES[state.currentAtomType];
 
   const atom = {
-    id: state.atoms.length,
+    id: state.nextAtomId++,
     typeId: def.id,
     currentBonds: 0,
-    state: "floating",
+    state: "toPhysical",
     x,
     y,
     vx: (Math.random() - 0.5) * 2,
@@ -108,6 +161,7 @@ function spawnAtomAt(x, y) {
   };
 
   state.atoms.push(atom);
+  state.atomById.set(atom.id, atom); 
 }
 
 // ----- Floating update (only for atoms without Matter bodies) -----
@@ -158,7 +212,7 @@ function handleFloatingCollisions() {
         a.state = "toPhysical";
         b.state = "toPhysical";
 
-        // if they already have bodies, create immediately (rare in your flow, but ok)
+        // if they already have bodies, create immediately
         if (a.body && b.body) {
           bond.constraint = createBondConstraint(physics, a, b);
         }
@@ -189,7 +243,7 @@ function loop(t) {
   updateFps(t);
 
   updateFloating(dt);
-  handleFloatingCollisions();
+  // handleFloatingCollisions();
 
   convertToPhysical(physics, state);
   ensureBondConstraints(physics, state);

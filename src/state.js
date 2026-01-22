@@ -4,7 +4,7 @@
 export const state = {
     atoms: [],
     bonds: [], // { aId, bId, molecule, constraint? }
-    moleculeCounts: { H2: 0, Cl2: 0, HCl: 0 },
+    moleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2:0 },
   
     currentAtomType: "H",
   
@@ -13,6 +13,9 @@ export const state = {
     lastFpsUpdate: performance.now(),
     lastTime: performance.now(),
   
+    atomById: new Map(),
+    nextAtomId: 0,
+
     input: {
       isRightMouseDown: false,
       mouseX: 0,
