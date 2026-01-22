@@ -1,6 +1,8 @@
 import Matter from "matter-js";
 import { ATOM_TYPES } from "./atomsConfig.js";
 
+const Constraint = Matter.Constraint;
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -13,6 +15,9 @@ resize();
 
 //randomize at spawn
 const ATOM_TYPE_IDS = ["H", "O", "Cl"];
+
+const BOND_LENGTH = 30; // pixels between bonded atoms
+const BOND_STIFFNESS = 0.02; // how strongly they pull together
 
 function randomAtomTypeId() {
   const i = Math.floor(Math.random() * ATOM_TYPE_IDS.length);
@@ -53,7 +58,7 @@ for (let i = 0; i < atomCount; i++) {
 
 // Matter
 const engine = Matter.Engine.create();
-engine.gravity.y = 1;
+engine.gravity.y = 0;
 const world = engine.world;
 
 // store a reference to the ground so atoms have something to land on
@@ -69,13 +74,14 @@ Matter.World.add(world, ground);
 handleResize();
 
 function updateFloating(dt) {
+  // 1) normal movement
   for (const a of atoms) {
     if (a.state !== "floating") continue;
+    if (a.body) continue;
 
     a.x += a.vx * dt;
     a.y += a.vy * dt;
 
-    // bounce on edges
     if (a.x < a.radius || a.x > canvas.width - a.radius) a.vx *= -1;
     if (a.y < a.radius || a.y > canvas.height - a.radius) a.vy *= -1;
   }
@@ -102,12 +108,19 @@ function draw() {
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 4;
+  // draw bonds...
+  ctx.globalAlpha = 1;
 
   for (const a of atoms) {
     ctx.beginPath();
     ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
     ctx.fillStyle = a.color;
     ctx.fill();
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   if (fps >= 50) ctx.fillStyle = "#00ff00";
@@ -201,10 +214,14 @@ function handleFloatingCollisions() {
         // mark them as 'ready' to become physical
         a.state = "toPhysical";
         b.state = "toPhysical";
+        // if they already have bodies, create constraint now
+        if (a.body && b.body) {
+          createBondConstraint(a, b);
+        }
 
-        // optional: color by type but darker when bonded
-        a.color = "#ffcc4f";
-        b.color = "#ffcc4f";
+        // // optional: color by type but darker when bonded
+        // a.color = "#ffcc4f";
+        // b.color = "#ffcc4f";
       }
     }
   }
@@ -213,15 +230,37 @@ function handleFloatingCollisions() {
 function convertToPhysical() {
   for (const a of atoms) {
     if (a.state !== "toPhysical") continue;
+    if (a.body) continue;
 
-    // create a circular body at the atom's current position
-    const body = Matter.Bodies.circle(a.x, a.y, a.radius);
+    const body = Matter.Bodies.circle(a.x, a.y, a.radius, {
+      frictionAir: 0,
+      restitution: 0.6,
+    });
+
+    // carry over current motion
+    Matter.Body.setVelocity(body, { x: a.vx, y: a.vy });
 
     Matter.World.add(world, body);
-
     a.body = body;
     a.state = "physical";
-    a.color = "#ff6666"; // optional: new color for physical atoms
+  }
+
+  // ensure all bonds have constraints once both endpoints have bodies
+  for (const bond of bonds) {
+    const a = atoms[bond.aId];
+    const b = atoms[bond.bId];
+    if (!a || !b) continue;
+    if (!a.body || !b.body) continue;
+    if (bond.constraint) continue;
+
+    bond.constraint = Constraint.create({
+      bodyA: a.body,
+      bodyB: b.body,
+      length: 30,
+      stiffness: 0.9,
+      damping: 0.2,
+    });
+    Matter.World.add(world, bond.constraint);
   }
 }
 
@@ -231,7 +270,14 @@ function updatePhysical() {
 
   // sync positions from Matter bodies back into atoms
   for (const a of atoms) {
-    if (a.state !== "physical" || !a.body) continue;
+    if (!a.body) continue;
+
+    // small random nudges to keep things alive
+    const jitter = 0.000;
+    Matter.Body.applyForce(a.body, a.body.position, {
+      x: (Math.random() - 0.5) * jitter,
+      y: (Math.random() - 0.5) * jitter,
+    });
 
     a.x = a.body.position.x;
     a.y = a.body.position.y;
@@ -323,4 +369,15 @@ function getPairMolecule(a, b) {
   if (types === "Cl-H") return "HCl";
   // later: handle H2O when you have 3 atoms bonded
   return null;
+}
+
+function createBondConstraint(a, b) {
+  const constraint = Constraint.create({
+    bodyA: a.body,
+    bodyB: b.body,
+    length: 30, // target distance
+    stiffness: 0.9, // fairly rigid
+    damping: 0.2, // reduces oscillation
+  });
+  Matter.World.add(world, constraint);
 }
