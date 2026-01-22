@@ -11,9 +11,12 @@ import {
   installCollisionBonding 
 } from "./physics.js";
 import { draw } from "./render.js";
+import { createTelemetry } from "./telemetry.js";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const telemetry = createTelemetry({ getState: () => state });
+
 
 // ----- Canvas resize -----
 function resizeCanvas() {
@@ -58,6 +61,14 @@ function onBond(a, b) {
 
   // create constraint immediately (both have bodies)
   bond.constraint = createBondConstraint(physics, a, b);
+
+  telemetry.event("bond_formed", {
+    molecule,
+    aType: a.typeId,
+    bType: b.typeId,
+    aId: a.id,
+    bId: b.id,
+  });  
 
   console.log("Molecule formed:", molecule, "from", a.id, b.id);
 }
@@ -250,7 +261,7 @@ function loop(t) {
   updatePhysical(physics, state);
 
   draw(canvas, ctx, state);
-
+  telemetry.tickUi();
   requestAnimationFrame(loop);
 }
 
