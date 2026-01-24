@@ -20,7 +20,7 @@ A small Vite + Canvas + Matter.js prototype where particles (H, O, Cl) move arou
 ```bash
 npm install
 npm run dev
-
+```
 
 Open the URL printed in the terminal (usually http://localhost:5173).
 
