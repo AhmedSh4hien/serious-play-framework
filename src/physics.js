@@ -1,32 +1,53 @@
 import Matter from "matter-js";
 
 export function createPhysics(canvas) {
-  const engine = Matter.Engine.create();
-  engine.gravity.x = 0;
-  engine.gravity.y = 0;
-  engine.gravity.scale = 0;
+  const engine = Matter.Engine.create()
+  engine.gravity.x = 0
+  engine.gravity.y = 0
+  engine.gravity.scale = 0
 
-  const world = engine.world;
+  const world = engine.world
 
-  const ground = Matter.Bodies.rectangle(
-    canvas.width / 2,
-    canvas.height + 40,
-    canvas.width,
-    80,
-    { isStatic: true }
-  );
-  Matter.World.add(world, ground);
+  const wallThickness = 80
+  const walls = {
+    floor: Matter.Bodies.rectangle(
+      canvas.width / 2, canvas.height + wallThickness / 2,
+      canvas.width + wallThickness * 2, wallThickness,
+      { isStatic: true }
+    ),
+    ceiling: Matter.Bodies.rectangle(
+      canvas.width / 2, -wallThickness / 2,
+      canvas.width + wallThickness * 2, wallThickness,
+      { isStatic: true }
+    ),
+    left: Matter.Bodies.rectangle(
+      -wallThickness / 2, canvas.height / 2,
+      wallThickness, canvas.height + wallThickness * 2,
+      { isStatic: true }
+    ),
+    right: Matter.Bodies.rectangle(
+      canvas.width + wallThickness / 2, canvas.height / 2,
+      wallThickness, canvas.height + wallThickness * 2,
+      { isStatic: true }
+    ),
+  }
 
-  return { Matter, engine, world, ground };
+  Matter.World.add(world, Object.values(walls))
+
+  return { Matter, engine, world, walls }
 }
+
 
 export function handleResizePhysics(physics, canvas) {
-  const { Matter, ground } = physics;
-  Matter.Body.setPosition(ground, {
-    x: canvas.width / 2,
-    y: canvas.height + 40,
-  });
+  const { Matter, walls } = physics
+  const t = 80
+
+  Matter.Body.setPosition(walls.floor,   { x: canvas.width / 2, y: canvas.height + t / 2 })
+  Matter.Body.setPosition(walls.ceiling, { x: canvas.width / 2, y: -t / 2 })
+  Matter.Body.setPosition(walls.left,    { x: -t / 2, y: canvas.height / 2 })
+  Matter.Body.setPosition(walls.right,   { x: canvas.width + t / 2, y: canvas.height / 2 })
 }
+
 
 export function convertToPhysical(physics, state) {
   const { Matter, world } = physics;
@@ -74,22 +95,39 @@ export function ensureBondConstraints(physics, state) {
 }
 
 export function updatePhysical(physics, state) {
-  const { Matter, engine } = physics;
-  Matter.Engine.update(engine, 1000 / 60);
+  const { Matter, engine, world } = physics
+  Matter.Engine.update(engine, 1000 / 60)
 
-  for (const a of state.atoms) {
-    if (!a.body) continue;
+  const margin = 300
 
-    const jitter = 0.0;
-    Matter.Body.applyForce(a.body, a.body.position, {
-      x: (Math.random() - 0.5) * jitter,
-      y: (Math.random() - 0.5) * jitter,
-    });
+  for (let i = state.atoms.length - 1; i >= 0; i--) {
+    const a = state.atoms[i]
+    if (!a.body) continue
 
-    a.x = a.body.position.x;
-    a.y = a.body.position.y;
+    a.x = a.body.position.x
+    a.y = a.body.position.y
+
+    const out =
+      a.x < -margin || a.x > window.innerWidth + margin ||
+      a.y < -margin || a.y > window.innerHeight + margin
+
+    if (out) {
+      // remove any bond constraints referencing this atom
+      for (let j = state.bonds.length - 1; j >= 0; j--) {
+        const bond = state.bonds[j]
+        if (bond.aId === a.id || bond.bId === a.id) {
+          if (bond.constraint) Matter.World.remove(world, bond.constraint)
+          state.bonds.splice(j, 1)
+        }
+      }
+
+      Matter.World.remove(world, a.body)
+      state.atomById.delete(a.id)
+      state.atoms.splice(i, 1)
+    }
   }
 }
+
 
 export function createBondConstraint(physics, a, b) {
   const { Matter, world } = physics;
