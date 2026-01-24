@@ -22,19 +22,3 @@ npm install
 npm run dev
 ```
 
-Open the URL printed in the terminal (usually http://localhost:5173).
-
-Code overview
-src/main.js — loop, input/spawning, bonding, OH decay, H2O finalization
-
-src/chemistry.js — bond rules + molecule mapping
-
-src/physics.js — Matter.js world, walls, constraints, stepping
-
-src/render.js — drawing atoms/bonds/HUD + ion badge
-
-src/state.js — shared state container
-
-Notes
-
-This is “toy chemistry” intended for rapid prototyping/gameplay exploration (not chemically accurate simulation).
