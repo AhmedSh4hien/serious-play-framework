@@ -20,16 +20,41 @@ export function draw(canvas, ctx, state) {
     ctx.stroke();
   }
 
-  // Atoms
-  for (const a of state.atoms) {
-    ctx.beginPath();
-    ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
-    ctx.fillStyle = a.color;
-    ctx.fill();
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+// Atoms
+for (const a of state.atoms) {
+  // circle
+  ctx.beginPath();
+  ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+  ctx.fillStyle = a.color;
+  ctx.fill();
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // label on top
+  const label = a.typeId; // pick the right field
+  if (label) {
+    ctx.save();
+
+    // size: keep readable but not huge
+    const fontPx = Math.max(10, Math.floor(a.radius * 1.1));
+    ctx.font = `bold ${fontPx}px monospace`;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // outline for readability on bright colors
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,1)";
+    ctx.strokeText(label, a.x, a.y);
+
+    ctx.fillStyle = "#111";
+    ctx.fillText(label, a.x, a.y);
+
+    ctx.restore();
   }
+}
+
 
   // HUD background (add before the HUD text)
   ctx.fillStyle = "rgba(255,255,255,0.75)";
