@@ -343,8 +343,16 @@ function loop(t) {
   state.lastTime = t;
 
   if (state.input.isRightMouseDown) {
-    spawnAtomAt(state.input.mouseX, state.input.mouseY);
+    const r = 50; // spawn radius in px (tweak 10–40)
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.random() * r;
+  
+    const x = state.input.mouseX + Math.cos(ang) * rad;
+    const y = state.input.mouseY + Math.sin(ang) * rad;
+  
+    spawnAtomAt(x, y);
   }
+  
 
   updateFps(t);
   decayIntermediateBonds(t);
