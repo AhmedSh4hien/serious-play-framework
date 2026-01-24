@@ -1,6 +1,6 @@
 import { ATOM_TYPES } from "./atomsConfig.js";
 import { state } from "./state.js";
-import { canBond, getPairMolecule } from "./chemistry.js";
+import { canBond, getPairMolecule, shouldLockAfterBond } from "./chemistry.js";
 import {
   createPhysics,
   handleResizePhysics,
@@ -8,15 +8,16 @@ import {
   ensureBondConstraints,
   updatePhysical,
   createBondConstraint,
-  installCollisionBonding 
+  installCollisionBonding,
 } from "./physics.js";
 import { draw } from "./render.js";
 import { createTelemetry } from "./telemetry.js";
 
+
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const telemetry = createTelemetry({ getState: () => state });
-
 
 // ----- Canvas resize -----
 function resizeCanvas() {
@@ -32,12 +33,86 @@ resizeCanvas();
 function alreadyBonded(a, b) {
   return state.bonds.some(
     (x) =>
-      (x.aId === a.id && x.bId === b.id) ||
-      (x.aId === b.id && x.bId === a.id)
+      (x.aId === a.id && x.bId === b.id) || (x.aId === b.id && x.bId === a.id)
   );
 }
 
+
+
+function decayIntermediateBonds(now) {
+  const { Matter, world } = physics;
+  const HO_TTL = 3000;
+
+  for (let i = state.bonds.length - 1; i >= 0; i--) {
+    const bond = state.bonds[i];
+    if (bond.molecule !== "OH") continue;
+    if (now - (bond.createdAt ?? now) < HO_TTL) continue;
+
+    const a = state.atomById.get(bond.aId);
+    const b = state.atomById.get(bond.bId);
+
+    if (bond.constraint) {
+      Matter.World.remove(world, bond.constraint);
+    }
+
+    if (a) a.currentBonds = Math.max(0, a.currentBonds - 1);
+    if (b) b.currentBonds = Math.max(0, b.currentBonds - 1);
+
+    state.bonds.splice(i, 1);
+  }
+}
+
+
+function finalizeWaterMolecules() {
+  // Build adjacency from current bonds
+  const neighbors = new Map(); // atomId -> array of neighbor atom objects
+  for (const bond of state.bonds) {
+    const a = state.atomById.get(bond.aId);
+    const b = state.atomById.get(bond.bId);
+    if (!a || !b) continue;
+
+    if (!neighbors.has(a.id)) neighbors.set(a.id, []);
+    if (!neighbors.has(b.id)) neighbors.set(b.id, []);
+    neighbors.get(a.id).push(b);
+    neighbors.get(b.id).push(a);
+  }
+
+  // Find O with >= 2 H neighbors that are not locked into H2O yet
+  for (const o of state.atoms) {
+    if (o.typeId !== "O") continue;
+    if (o.locked) continue;
+
+    const ns = neighbors.get(o.id) ?? [];
+    const hNeighbors = ns.filter((n) => n.typeId === "H" && !n.locked);
+
+    if (hNeighbors.length >= 2) {
+      const h1 = hNeighbors[0];
+      const h2 = hNeighbors[1];
+
+      // Mark the two O-H bonds as H2O (final)
+      for (const bond of state.bonds) {
+        const isOH1 =
+          (bond.aId === o.id && bond.bId === h1.id) ||
+          (bond.aId === h1.id && bond.bId === o.id);
+        const isOH2 =
+          (bond.aId === o.id && bond.bId === h2.id) ||
+          (bond.aId === h2.id && bond.bId === o.id);
+        if (isOH1 || isOH2) bond.molecule = "H2O";
+      }
+
+      // Lock atoms so they don't keep bonding into garbage
+      o.locked = true;
+      h1.locked = true;
+      h2.locked = true;
+
+      state.moleculeCounts.H2O = (state.moleculeCounts.H2O || 0) + 1;
+    }
+  }
+}
+
 function onBond(a, b) {
+
+  
   // only bond physical bodies
   if (!a.body || !b.body) return;
 
@@ -56,11 +131,26 @@ function onBond(a, b) {
 
   state.moleculeCounts[molecule] = (state.moleculeCounts[molecule] || 0) + 1;
 
-  const bond = { aId: a.id, bId: b.id, molecule, constraint: null };
+  const bond = {
+    aId: a.id,
+    bId: b.id,
+    molecule,
+    constraint: null,
+    createdAt: performance.now(),
+  };
+  
+  if (shouldLockAfterBond(molecule)) {
+    a.locked = true;
+    b.locked = true;
+  }
+  
+  
   state.bonds.push(bond);
 
   // create constraint immediately (both have bodies)
   bond.constraint = createBondConstraint(physics, a, b);
+
+  finalizeWaterMolecules();
 
   telemetry.event("bond_formed", {
     molecule,
@@ -68,11 +158,10 @@ function onBond(a, b) {
     bType: b.typeId,
     aId: a.id,
     bId: b.id,
-  });  
+  });
 
   console.log("Molecule formed:", molecule, "from", a.id, b.id);
 }
-
 
 // ----- Random atom spawn at start -----
 const ATOM_TYPE_IDS = ["H", "O", "Cl"];
@@ -104,9 +193,8 @@ for (let i = 0; i < atomCount; i++) {
   };
 
   state.atoms.push(atom);
-  state.atomById.set(atom.id, atom); 
+  state.atomById.set(atom.id, atom);
 }
-
 
 for (const a of state.atoms) a.state = "toPhysical";
 
@@ -120,7 +208,6 @@ ensureBondConstraints(physics, state);
 
 // now install collision events
 installCollisionBonding(physics, state, { canBond, getPairMolecule }, onBond);
-
 
 // ----- Input -----
 canvas.addEventListener("mousedown", (e) => {
@@ -172,7 +259,7 @@ function spawnAtomAt(x, y) {
   };
 
   state.atoms.push(atom);
-  state.atomById.set(atom.id, atom); 
+  state.atomById.set(atom.id, atom);
 }
 
 // ----- Floating update (only for atoms without Matter bodies) -----
@@ -212,12 +299,20 @@ function handleFloatingCollisions() {
         const molecule = getPairMolecule(a, b);
         if (!molecule) continue;
 
-        state.moleculeCounts[molecule] = (state.moleculeCounts[molecule] || 0) + 1;
+        state.moleculeCounts[molecule] =
+          (state.moleculeCounts[molecule] || 0) + 1;
 
         a.currentBonds++;
         b.currentBonds++;
 
-        const bond = { aId: a.id, bId: b.id, molecule, constraint: null };
+        const bond = {
+          aId: a.id,
+          bId: b.id,
+          molecule,
+          constraint: null,
+          createdAt: performance.now(),
+        };
+        
         state.bonds.push(bond);
 
         a.state = "toPhysical";
@@ -252,6 +347,8 @@ function loop(t) {
   }
 
   updateFps(t);
+  decayIntermediateBonds(t);
+  finalizeWaterMolecules();
 
   updateFloating(dt);
   // handleFloatingCollisions();

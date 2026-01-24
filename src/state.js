@@ -4,7 +4,7 @@
 export const state = {
     atoms: [],
     bonds: [], // { aId, bId, molecule, constraint? }
-    moleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2:0 },
+    moleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2:0, H2O:0 },
   
     currentAtomType: "H",
   
