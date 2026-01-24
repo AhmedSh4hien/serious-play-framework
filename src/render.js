@@ -60,4 +60,8 @@ export function draw(canvas, ctx, state) {
   ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
   ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
   ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
+  
+ctx.fillText(`Controls: 1=H  2=O  3=Cl  (RMB&LMB=spawn)`, 10, 160)
+  
+  
 }
