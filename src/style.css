@@ -94,3 +94,52 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+#sessionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+#sessionOverlay .panel {
+  width: min(560px, calc(100vw - 32px));
+  max-height: 85vh;
+  overflow-y: auto;
+  background: rgba(18, 22, 32, 0.96);
+  color: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  font-family: system-ui, sans-serif;
+  pointer-events: auto;
+}
+
+#sessionOverlay.phase-intro,
+#sessionOverlay.phase-quiz,
+#sessionOverlay.phase-feedback {
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+#sessionOverlay.phase-simulation {
+  align-items: flex-end;
+  justify-content: flex-start;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+  padding: 24px 24px 32px 24px;
+}
+
+
+#sessionOverlay.phase-simulation .panel {
+  width: 320px;
+  pointer-events: auto;
+}

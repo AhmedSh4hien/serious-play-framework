@@ -12,12 +12,149 @@ import {
 } from "./physics.js";
 import { draw } from "./render.js";
 import { createTelemetry } from "./telemetry.js";
-
-
+import "./style.css";
+ 
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const telemetry = createTelemetry({ getState: () => state });
+
+const overlay = document.createElement("div");
+overlay.id = "sessionOverlay";
+document.body.appendChild(overlay);
+
+function renderOverlay() {
+  const s = state.session;
+  overlay.className = `phase-${s.phase}`;
+
+  if (s.phase === "intro") {
+    overlay.innerHTML = `
+      <div class="panel">
+        <h2>Intro</h2>
+        <p>${s.prompt}</p>
+        <p><strong>Goal:</strong> Create ${s.goal.targetCount} ${s.goal.molecule} molecules.</p>
+        <button id="startSessionBtn">Start</button>
+      </div>
+    `;
+    document.getElementById("startSessionBtn").onclick = startSimulation;
+    return;
+  }
+
+  if (s.phase === "simulation") {
+    overlay.innerHTML = `
+      <div class="panel panel--small">
+        <h3>Goal</h3>
+        <p>Create ${s.goal.targetCount} ${s.goal.molecule} molecules.</p>
+        <p>Current: ${state.moleculeCounts[s.goal.molecule] || 0}</p>
+        <button id="finishSimBtn">Finish & Continue</button>
+      </div>
+    `;
+    document.getElementById("finishSimBtn").onclick = goToQuiz;
+    return;
+  }
+
+  if (s.phase === "quiz") {
+    const q = s.quiz.questions[s.quiz.currentIndex];
+    overlay.innerHTML = `
+      <div class="panel">
+        <h2>Question ${s.quiz.currentIndex + 1}/${s.quiz.questions.length}</h2>
+        <p>${q.text}</p>
+        <div class="answers">
+          ${q.options.map((opt, i) => `
+            <button class="answerBtn" data-index="${i}">${opt}</button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+    document.querySelectorAll(".answerBtn").forEach((btn) => {
+      btn.onclick = () => answerQuestion(Number(btn.dataset.index));
+    });
+    return;
+  }
+
+  if (s.phase === "feedback") {
+    overlay.innerHTML = `
+      <div class="panel">
+        <h2>Feedback</h2>
+        <p>Quiz score: ${s.quiz.score}/${s.quiz.questions.length}</p>
+        <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
+        <p>Valid bonds formed: ${s.stats.validBonds}</p>
+        <p>${s.goal.molecule} formed: ${state.moleculeCounts[s.goal.molecule] || 0}</p>
+        <button id="restartSessionBtn">Restart session</button>
+      </div>
+    `;
+    document.getElementById("restartSessionBtn").onclick = restartSession;
+  }
+}
+
+
+function startSimulation() {
+  state.session.phase = "simulation";
+  state.session.startedAtMs ??= performance.now();
+  state.session.simStartedAtMs = performance.now();
+  telemetry.event("session_phase_changed", { phase: "simulation" });
+  renderOverlay();
+}
+
+function goToQuiz() {
+  state.session.phase = "quiz";
+  state.session.simEndedAtMs = performance.now();
+  telemetry.event("session_phase_changed", { phase: "quiz" });
+  renderOverlay();
+}
+
+function answerQuestion(selectedIndex) {
+  const quiz = state.session.quiz;
+  const q = quiz.questions[quiz.currentIndex];
+  const correct = selectedIndex === q.correctIndex;
+
+  quiz.answers.push({
+    questionId: q.id,
+    selectedIndex,
+    correct,
+  });
+
+  if (correct) quiz.score++;
+
+  telemetry.event("quiz_answered", {
+    questionId: q.id,
+    selectedIndex,
+    correct,
+  });
+
+  quiz.currentIndex++;
+
+  if (quiz.currentIndex >= quiz.questions.length) {
+    state.session.phase = "feedback";
+    telemetry.event("session_phase_changed", { phase: "feedback" });
+  }
+
+  renderOverlay();
+}
+
+function resetSessionData() {
+  state.session.phase = "intro";
+  state.session.goal.completed = false;
+  state.session.goal.completedAtMs = null;
+  state.session.startedAtMs = null;
+  state.session.simStartedAtMs = null;
+  state.session.simEndedAtMs = null;
+
+  state.session.quiz.currentIndex = 0;
+  state.session.quiz.answers = [];
+  state.session.quiz.score = 0;
+
+  state.session.stats.atomsSpawned = 0;
+  state.session.stats.validBonds = 0;
+  state.session.stats.invalidBondAttempts = 0;
+  state.session.stats.targetMoleculesFormed = 0;
+}
+
+function restartSession() {
+  resetSessionData();
+  telemetry.event("session_restarted");
+  renderOverlay();
+}
 
 // ----- Canvas resize -----
 function resizeCanvas() {
@@ -36,8 +173,6 @@ function alreadyBonded(a, b) {
       (x.aId === a.id && x.bId === b.id) || (x.aId === b.id && x.bId === a.id)
   );
 }
-
-
 
 function decayIntermediateBonds(now) {
   const { Matter, world } = physics;
@@ -61,7 +196,6 @@ function decayIntermediateBonds(now) {
     state.bonds.splice(i, 1);
   }
 }
-
 
 function finalizeWaterMolecules() {
   // Build adjacency from current bonds
@@ -111,21 +245,15 @@ function finalizeWaterMolecules() {
 }
 
 function onBond(a, b) {
-
-  
-  // only bond physical bodies
   if (!a.body || !b.body) return;
-
-  // prevent spam / duplicates
   if (alreadyBonded(a, b)) return;
-
-  // chemistry gate
   if (!canBond(a, b)) return;
 
   const molecule = getPairMolecule(a, b);
   if (!molecule) return;
 
-  // apply bond
+  state.session.stats.validBonds++;
+
   a.currentBonds++;
   b.currentBonds++;
 
@@ -138,19 +266,34 @@ function onBond(a, b) {
     constraint: null,
     createdAt: performance.now(),
   };
-  
+
   if (shouldLockAfterBond(molecule)) {
     a.locked = true;
     b.locked = true;
   }
-  
-  
-  state.bonds.push(bond);
 
-  // create constraint immediately (both have bodies)
+  state.bonds.push(bond);
   bond.constraint = createBondConstraint(physics, a, b);
 
   finalizeWaterMolecules();
+
+  const goal = state.session.goal;
+  const currentTargetCount = state.moleculeCounts[goal.molecule] || 0;
+  state.session.stats.targetMoleculesFormed = currentTargetCount;
+
+  if (
+    state.session.phase === "simulation" &&
+    !goal.completed &&
+    currentTargetCount >= goal.targetCount
+  ) {
+    goal.completed = true;
+    goal.completedAtMs = performance.now();
+    telemetry.event("goal_completed", {
+      molecule: goal.molecule,
+      targetCount: goal.targetCount,
+      actualCount: currentTargetCount,
+    });
+  }
 
   telemetry.event("bond_formed", {
     molecule,
@@ -159,8 +302,6 @@ function onBond(a, b) {
     aId: a.id,
     bId: b.id,
   });
-
-  console.log("Molecule formed:", molecule, "from", a.id, b.id);
 }
 
 // ----- Random atom spawn at start -----
@@ -211,6 +352,8 @@ installCollisionBonding(physics, state, { canBond, getPairMolecule }, onBond);
 
 // ----- Input -----
 canvas.addEventListener("mousedown", (e) => {
+  if (state.session.phase !== "simulation") return;
+
   const rect = canvas.getBoundingClientRect();
   state.input.mouseX = e.clientX - rect.left;
   state.input.mouseY = e.clientY - rect.top;
@@ -243,6 +386,14 @@ window.addEventListener("keydown", (e) => {
 // ----- Spawning -----
 function spawnAtomAt(x, y) {
   const def = ATOM_TYPES[state.currentAtomType];
+
+  state.session.stats.atomsSpawned++;
+  telemetry.event("atom_spawned", {
+    type: def.id,
+    x: Math.round(x),
+    y: Math.round(y),
+    phase: state.session.phase,
+  });
 
   const atom = {
     id: state.nextAtomId++,
@@ -312,7 +463,7 @@ function handleFloatingCollisions() {
           constraint: null,
           createdAt: performance.now(),
         };
-        
+
         state.bonds.push(bond);
 
         a.state = "toPhysical";
@@ -342,17 +493,17 @@ function loop(t) {
   const dt = (t - state.lastTime) * 0.1;
   state.lastTime = t;
 
-  if (state.input.isRightMouseDown) {
+  if (state.session.phase === "simulation" && state.input.isRightMouseDown) {
+
     const r = 50; // spawn radius in px (tweak 10–40)
     const ang = Math.random() * Math.PI * 2;
     const rad = Math.random() * r;
-  
+
     const x = state.input.mouseX + Math.cos(ang) * rad;
     const y = state.input.mouseY + Math.sin(ang) * rad;
-  
+
     spawnAtomAt(x, y);
   }
-  
 
   updateFps(t);
   decayIntermediateBonds(t);
@@ -369,5 +520,8 @@ function loop(t) {
   telemetry.tickUi();
   requestAnimationFrame(loop);
 }
+
+renderOverlay();
+telemetry.event("session_phase_changed", { phase: state.session.phase });
 
 requestAnimationFrame(loop);
