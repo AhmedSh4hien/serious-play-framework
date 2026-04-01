@@ -5,8 +5,6 @@ export const state = {
   bonds: [],
   moleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 },
 
-  currentAtomType: "H",
-
   fps: 0,
   framesThisSecond: 0,
   lastFpsUpdate: performance.now(),
@@ -16,13 +14,14 @@ export const state = {
   nextAtomId: 0,
 
   input: {
-    isRightMouseDown: false,
     mouseX: 0,
     mouseY: 0,
+    isPointerDown: false,
+    isRightMouseDown: false,
   },
 
   session: {
-    phase: "intro", // intro | simulation | quiz | feedback
+    phase: "intro",
     topic: "valency",
     prompt:
       "In this session, learn how bonding capacity affects which molecules can form. Hydrogen forms 1 bond, oxygen 2, and chlorine 1 in this prototype.",
@@ -33,6 +32,15 @@ export const state = {
       completed: false,
       completedAtMs: null,
     },
+
+    inventory: {
+      H: 6,
+      O: 3,
+      Cl: 2,
+    },
+
+    selectedSpawnType: "H",
+
     startedAtMs: null,
     simStartedAtMs: null,
     simEndedAtMs: null,
