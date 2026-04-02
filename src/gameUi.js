@@ -12,7 +12,19 @@ export function renderGameUi(gameUi, state, actions) {
   gameUi.style.display = show ? "flex" : "none";
   if (!show) return;
 
-  const types = ["H", "O", "Cl"];
+  const types = s.allowedAtomTypes ?? ["H", "O", "Cl"];
+  const targets = s.goal.targets || [];
+
+  const goalText = targets
+    .map((t) => `${t.targetCount} ${t.molecule}`)
+    .join(", ");
+
+  const progressText = targets
+    .map(
+      (t) =>
+        `${t.molecule}: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}`
+    )
+    .join(" | ");
 
   gameUi.innerHTML = `
     <div class="game-toolbar">
@@ -21,9 +33,7 @@ export function renderGameUi(gameUi, state, actions) {
           .map(
             (type) => `
           <button
-            class="atom-btn ${
-              s.selectedSpawnType === type ? "is-selected" : ""
-            }"
+            class="atom-btn ${s.selectedSpawnType === type ? "is-selected" : ""}"
             data-type="${type}"
             ${s.inventory[type] <= 0 ? "disabled" : ""}
           >
@@ -36,10 +46,8 @@ export function renderGameUi(gameUi, state, actions) {
       </div>
 
       <div class="toolbar-meta">
-        <div class="toolbar-goal">Goal: ${s.goal.targetCount} ${s.goal.molecule}</div>
-        <div class="toolbar-progress">Current: ${
-          state.moleculeCounts[s.goal.molecule] || 0
-        }</div>
+        <div class="toolbar-goal">Goal: ${goalText}</div>
+        <div class="toolbar-progress">Current: ${progressText}</div>
       </div>
     </div>
   `;

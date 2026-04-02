@@ -85,7 +85,7 @@ export function draw(canvas, ctx, state) {
 
   // HUD background
   ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillRect(6, 6, 220, 150);
+  ctx.fillRect(6, 6, 220, 200);
 
   // HUD
   const fpsText = `FPS: ${state.fps}`;
@@ -105,12 +105,11 @@ export function draw(canvas, ctx, state) {
   ctx.lineWidth = 1;
   ctx.fillStyle = "#000000";
   ctx.fillText(`Atoms: ${state.atoms.length}`, 10, 40);
-  ctx.fillText(`Current: ${state.currentAtomType}`, 10, 60);
+  ctx.fillText(`Selected: ${state.session.selectedSpawnType}`, 10, 60);
   ctx.fillText(`H2: ${state.moleculeCounts.H2}`, 10, 80);
   ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
   ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
   ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
   ctx.fillText(`H2O: ${state.moleculeCounts.H2O}`, 10, 160);
-  ctx.fillText(`OH: ${state.moleculeCounts.H2O}`, 10, 180);
-  ctx.fillText(`Controls: 1=H  2=O  3=Cl  (RMB&LMB=spawn)`, 100, 20);
+  ctx.fillText(`OH: ${state.moleculeCounts.OH}`, 10, 180);
 }

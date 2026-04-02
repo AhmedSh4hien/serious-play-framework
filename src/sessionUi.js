@@ -1,3 +1,5 @@
+import { LEVELS } from "./levelsConfig.js";
+
 export function createSessionUi() {
   const overlay = document.createElement("div");
   overlay.id = "sessionOverlay";
@@ -9,12 +11,16 @@ export function renderOverlay(overlay, state, actions) {
   const s = state.session;
   overlay.className = `phase-${s.phase}`;
 
+  const goalText = (s.goal.targets || [])
+    .map((t) => `${t.targetCount} ${t.molecule}`)
+    .join(", ");
+
   if (s.phase === "intro") {
     overlay.innerHTML = `
       <div class="panel">
-        <h2>Intro</h2>
+      <h2>${s.title}</h2>
         <p>${s.prompt}</p>
-        <p><strong>Goal:</strong> Create ${s.goal.targetCount} ${s.goal.molecule} molecules.</p>
+        <p><strong>Goal:</strong> Create ${goalText}.</p>
         <button id="startSessionBtn" type="button">Start</button>
       </div>
     `;
@@ -26,12 +32,26 @@ export function renderOverlay(overlay, state, actions) {
     overlay.innerHTML = `
       <div class="panel panel--small">
         <h3>Goal</h3>
-        <p>Create ${s.goal.targetCount} ${s.goal.molecule} molecules.</p>
-        <p>Current: ${state.moleculeCounts[s.goal.molecule] || 0}</p>
-        <button id="finishSimBtn" type="button">Finish & Continue</button>
+        <p>Create ${goalText}.</p>
+        <div class="goal-progress">
+  ${(s.goal.targets || [])
+    .map(
+      (t) => `
+        <p>${t.molecule}: ${s.createdMoleculeCounts[t.molecule] || 0}/${
+        t.targetCount
+      }</p>
+      `
+    )
+    .join("")}
+    </div>
+        <div class="sim-actions">
+          <button id="restartSimBtn" type="button" title="Restart level">↻</button>
+          <button id="finishSimBtn" type="button">Finish & Continue</button>
+        </div>
       </div>
     `;
     overlay.querySelector("#finishSimBtn").onclick = actions.onFinishSimulation;
+    overlay.querySelector("#restartSimBtn").onclick = actions.onRestart;
     return;
   }
 
@@ -60,17 +80,39 @@ export function renderOverlay(overlay, state, actions) {
   }
 
   if (s.phase === "feedback") {
+    const hasNextLevel = s.currentLevelIndex < LEVELS.length - 1;
+  
     overlay.innerHTML = `
       <div class="panel">
         <h2>Feedback</h2>
         <p>Quiz score: ${s.quiz.score}/${s.quiz.questions.length}</p>
         <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
         <p>Valid bonds formed: ${s.stats.validBonds}</p>
-        <p>${s.goal.molecule} formed: ${state.moleculeCounts[s.goal.molecule] || 0}</p>
-        <button id="restartSessionBtn" type="button">Restart session</button>
+        <div class="goal-progress">
+          ${(s.goal.targets || [])
+            .map(
+              (t) => `
+                <p>${t.molecule} formed: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>
+              `
+            )
+            .join("")}
+        </div>
+        <div class="feedback-actions">
+          <button id="restartSessionBtn" type="button">Restart session</button>
+          ${
+            hasNextLevel
+              ? `<button id="nextLevelBtn" type="button">Next level</button>`
+              : ""
+          }
+        </div>
       </div>
     `;
+  
     overlay.querySelector("#restartSessionBtn").onclick = actions.onRestart;
+  
+    if (hasNextLevel) {
+      overlay.querySelector("#nextLevelBtn").onclick = actions.onNextLevel;
+    }
   }
 }
 
@@ -78,6 +120,7 @@ export function startSimulation(state, telemetry) {
   state.session.phase = "simulation";
   state.session.startedAtMs ??= performance.now();
   state.session.simStartedAtMs = performance.now();
+  state.session.isTrackingProgress = true;
   telemetry.event("session_phase_changed", { phase: "simulation" });
 }
 
@@ -115,24 +158,47 @@ export function answerQuestion(state, telemetry, selectedIndex) {
 }
 
 export function resetSessionData(state) {
+  const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
+
   state.session.phase = "intro";
-  state.session.goal.completed = false;
-  state.session.goal.completedAtMs = null;
+  state.session.topic = level.topic;
+  state.session.title = level.title;
+  state.session.prompt = level.prompt;
+
+  state.session.goal = {
+    ...level.goal,
+    targets: (level.goal.targets || []).map((t) => ({ ...t })),
+    completed: false,
+    completedAtMs: null,
+  };
+
   state.session.startedAtMs = null;
   state.session.simStartedAtMs = null;
   state.session.simEndedAtMs = null;
+  state.session.isTrackingProgress = false;
 
-  state.session.inventory = {
-    H: 6,
-    O: 3,
-    Cl: 2,
+  state.session.createdMoleculeCounts = {
+    H2: 0,
+    Cl2: 0,
+    HCl: 0,
+    O2: 0,
+    H2O: 0,
   };
 
-  state.session.selectedSpawnType = "H";
+  state.session.inventory = {
+    H: 0,
+    O: 0,
+    Cl: 0,
+    ...level.inventory,
+  };
+
+  state.session.allowedAtomTypes = [...level.allowedAtomTypes];
+  state.session.selectedSpawnType = level.allowedAtomTypes[0];
 
   state.session.quiz.currentIndex = 0;
   state.session.quiz.answers = [];
   state.session.quiz.score = 0;
+  state.session.quiz.questions = level.quizQuestions;
 
   state.session.stats.atomsSpawned = 0;
   state.session.stats.validBonds = 0;
@@ -143,4 +209,15 @@ export function resetSessionData(state) {
 export function restartSession(state, telemetry) {
   resetSessionData(state);
   telemetry.event("session_restarted");
+}
+
+export function goToNextLevel(state, telemetry) {
+  if (state.session.currentLevelIndex < LEVELS.length - 1) {
+    state.session.currentLevelIndex++;
+    resetSessionData(state);
+    telemetry.event("level_advanced", {
+      levelIndex: state.session.currentLevelIndex,
+      levelId: LEVELS[state.session.currentLevelIndex].id,
+    });
+  }
 }

@@ -1,9 +1,13 @@
 import { QUIZ_QUESTIONS } from "./quizConfig.js";
+import { LEVELS } from "./levelsConfig.js";
+
+const initialLevel = LEVELS[0];
 
 export const state = {
   atoms: [],
   bonds: [],
   moleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 },
+  // createdMoleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 },
 
   fps: 0,
   framesThisSecond: 0,
@@ -21,37 +25,37 @@ export const state = {
   },
 
   session: {
+    currentLevelIndex: 0,
     phase: "intro",
-    topic: "valency",
-    prompt:
-      "In this session, learn how bonding capacity affects which molecules can form. Hydrogen forms 1 bond, oxygen 2, and chlorine 1 in this prototype.",
+    topic: initialLevel.topic,
+    title: initialLevel.title,
+    prompt: initialLevel.prompt,
     goal: {
-      type: "create_molecule",
-      molecule: "H2O",
-      targetCount: 2,
+      ...initialLevel.goal,
       completed: false,
       completedAtMs: null,
     },
-
+  
     inventory: {
-      H: 6,
-      O: 3,
-      Cl: 2,
+      ...initialLevel.inventory,
     },
-
-    selectedSpawnType: "H",
-
+  
+    allowedAtomTypes: [...initialLevel.allowedAtomTypes],
+    selectedSpawnType: initialLevel.allowedAtomTypes[0],
+  
     startedAtMs: null,
     simStartedAtMs: null,
     simEndedAtMs: null,
+    isTrackingProgress: false,
+    createdMoleculeCounts: { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 },
 
     quiz: {
       currentIndex: 0,
       answers: [],
       score: 0,
-      questions: QUIZ_QUESTIONS,
+      questions: initialLevel.quizQuestions,
     },
-
+  
     stats: {
       atomsSpawned: 0,
       validBonds: 0,

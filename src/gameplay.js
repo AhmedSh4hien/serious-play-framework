@@ -1,13 +1,14 @@
 import { ATOM_TYPES } from "./atomsConfig.js";
 import { canBond, getPairMolecule, shouldLockAfterBond } from "./chemistry.js";
 import { createBondConstraint } from "./physics.js";
+import { LEVELS } from "./levelsConfig.js";
 
-const ATOM_TYPE_IDS = ["H", "O", "Cl"];
+// const ATOM_TYPE_IDS = ["H", "O", "Cl"];
 
-function randomAtomTypeId() {
-  const i = Math.floor(Math.random() * ATOM_TYPE_IDS.length);
-  return ATOM_TYPE_IDS[i];
-}
+// function randomAtomTypeId() {
+//   const i = Math.floor(Math.random() * ATOM_TYPE_IDS.length);
+//   return ATOM_TYPE_IDS[i];
+// }
 
 function alreadyBonded(state, a, b) {
   return state.bonds.some(
@@ -39,17 +40,25 @@ function createAtom(state, typeId, x, y) {
 }
 
 export function initAtoms(state, canvas) {
-  const atomCount = 500;
   state.nextAtomId = 0;
 
-  for (let i = 0; i < atomCount; i++) {
-    const typeId = randomAtomTypeId();
-    createAtom(
-      state,
-      typeId,
-      Math.random() * canvas.width,
-      Math.random() * canvas.height
-    );
+  const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
+  const startingAtoms = level.startingAtoms ?? [];
+
+  for (const entry of startingAtoms) {
+    const count = entry.count ?? 1;
+
+    for (let i = 0; i < count; i++) {
+      const x = entry.random
+        ? Math.random() * canvas.width
+        : entry.x ?? Math.random() * canvas.width;
+
+      const y = entry.random
+        ? Math.random() * canvas.height
+        : entry.y ?? Math.random() * canvas.height;
+
+      createAtom(state, entry.typeId, x, y);
+    }
   }
 
   for (const atom of state.atoms) {
@@ -146,6 +155,10 @@ export function finalizeWaterMolecules({ state, onUiChange }) {
       h2.locked = true;
 
       state.moleculeCounts.H2O = (state.moleculeCounts.H2O || 0) + 1;
+      if (state.session.isTrackingProgress) {
+        state.session.createdMoleculeCounts.H2O =
+          (state.session.createdMoleculeCounts.H2O || 0) + 1;
+      }
       changed = true;
     }
   }
@@ -168,6 +181,11 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
 
   state.moleculeCounts[molecule] = (state.moleculeCounts[molecule] || 0) + 1;
 
+  if (state.session.isTrackingProgress) {
+    state.session.createdMoleculeCounts[molecule] =
+      (state.session.createdMoleculeCounts[molecule] || 0) + 1;
+  }
+
   const bond = {
     aId: a.id,
     bId: b.id,
@@ -187,21 +205,36 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   finalizeWaterMolecules({ state, onUiChange });
 
   const goal = state.session.goal;
-  const currentTargetCount = state.moleculeCounts[goal.molecule] || 0;
-  state.session.stats.targetMoleculesFormed = currentTargetCount;
-
+  const targets = goal.targets || [];
+  
+  const completedTargetCount = targets.filter((t) => {
+    const current = state.session.createdMoleculeCounts[t.molecule] || 0;
+    return current >= t.targetCount;
+  }).length;
+  
+  state.session.stats.targetMoleculesFormed = completedTargetCount;
+  
+  const allTargetsCompleted =
+    targets.length > 0 &&
+    targets.every((t) => {
+      const current = state.session.createdMoleculeCounts[t.molecule] || 0;
+      return current >= t.targetCount;
+    });
+  
   if (
     state.session.phase === "simulation" &&
     !goal.completed &&
-    currentTargetCount >= goal.targetCount
+    allTargetsCompleted
   ) {
     goal.completed = true;
     goal.completedAtMs = performance.now();
-
+  
     telemetry.event("goal_completed", {
-      molecule: goal.molecule,
-      targetCount: goal.targetCount,
-      actualCount: currentTargetCount,
+      targets: targets.map((t) => ({
+        molecule: t.molecule,
+        targetCount: t.targetCount,
+        actualCount: state.session.createdMoleculeCounts[t.molecule] || 0,
+      })),
     });
   }
 
@@ -219,7 +252,7 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
 export function applyMouseForce({ state, physics }) {
   if (state.session.phase !== "simulation") return;
   if (!state.input.isRightMouseDown) return;
-  
+
   const radius = 140;
   const strength = 0.0009;
 

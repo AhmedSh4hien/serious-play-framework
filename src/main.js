@@ -18,6 +18,7 @@ import {
   goToQuiz,
   answerQuestion,
   restartSession,
+  goToNextLevel
 } from "./sessionUi.js";
 import { createGameUi, renderGameUi } from "./gameUi.js";
 import {
@@ -55,8 +56,8 @@ function getHudKey() {
     s.inventory?.H ?? 0,
     s.inventory?.O ?? 0,
     s.inventory?.Cl ?? 0,
-    state.moleculeCounts?.[s.goal?.molecule] ?? 0,
-  ].join("|");
+    s.createdMoleculeCounts?.[s.goal?.molecule] ?? 0,
+    ].join("|");
 }
 
 function renderOverlayIfNeeded(force = false) {
@@ -82,6 +83,12 @@ function renderOverlayIfNeeded(force = false) {
     },
     onRestart: () => {
       restartSession(state, telemetry);
+      resetWorldFromState();
+      renderOverlayIfNeeded(true);
+      renderHudIfNeeded(true);
+    },
+    onNextLevel: () => {
+      goToNextLevel(state, telemetry);
       resetWorldFromState();
       renderOverlayIfNeeded(true);
       renderHudIfNeeded(true);
@@ -150,7 +157,8 @@ installCollisionBonding(
       physics,
       telemetry,
       onUiChange: () => {
-        renderHudIfNeeded();
+        renderHudIfNeeded(true);
+        renderOverlayIfNeeded(true);
       },
     });
   }
@@ -196,7 +204,8 @@ function loop(t) {
   finalizeWaterMolecules({
     state,
     onUiChange: () => {
-      renderHudIfNeeded();
+      renderHudIfNeeded(true);
+      renderOverlayIfNeeded(true);
     },
   });
 
