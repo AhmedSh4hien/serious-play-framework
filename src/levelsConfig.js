@@ -5,6 +5,7 @@ export const LEVELS = [
     topic: "valency",
     prompt:
       "Welcome to the first bonding challenge. Use hydrogen atoms to create molecules.",
+      funFact: "Hydrogen bonds are why ice floats! Water molecules bond in a hexagonal lattice when frozen, making ice less dense than liquid water.",
     allowedAtomTypes: ["H"],
     startingAtoms: [
       { typeId: "H", count: 5, random: true },
@@ -41,6 +42,7 @@ export const LEVELS = [
     title: "Level 2: Chlorine Mix",
     topic: "valency",
     prompt: "Hydrogen and chlorine can form different molecules. Create the full set of targets.",
+    funFact: "HCl dissolves in water to form hydrochloric acid — the same acid your stomach uses to digest food.",
     allowedAtomTypes: ["H", "Cl"],
     startingAtoms: [
       { typeId: "H", count: 4, random: true },
@@ -80,6 +82,7 @@ export const LEVELS = [
     title: "Level 3: Oxygen Pairs",
     topic: "valency",
     prompt: "Oxygen can bond in pairs too. Create 2 O2 molecules.",
+    funFact: "Every breath you take is about 21% O₂. Two oxygen atoms bonded together — just like you made here.",
     allowedAtomTypes: ["O"],
     startingAtoms: [
       { typeId: "O", count: 5, random: true },
@@ -116,6 +119,7 @@ export const LEVELS = [
     title: "Level 4: Water Builder",
     topic: "valency",
     prompt: "Oxygen can bond with two hydrogens. Create 1 H2O molecule.",
+    funFact: "A single water molecule lasts in the atmosphere for about 9 days before falling as rain.",
     allowedAtomTypes: ["H", "O"],
     startingAtoms: [
       { typeId: "H", count: 3, random: true },
@@ -153,6 +157,7 @@ export const LEVELS = [
     title: "Level 5: Mixed Reactions",
     topic: "valency",
     prompt: "Use everything you have learned. Create the full set of target molecules.",
+    funFact: "The DNA in your body is held together by hydrogen bonds — the same type of bond between H and O you just formed.",
     allowedAtomTypes: ["H", "O", "Cl"],
     startingAtoms: [
       { typeId: "H", count: 4, random: true },

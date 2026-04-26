@@ -77,6 +77,8 @@ export function renderOverlay(overlay, sidebar, state, actions) {
 
   if (s.phase === "feedback") {
     const hasNextLevel = s.currentLevelIndex < LEVELS.length - 1;
+    const level = LEVELS[s.currentLevelIndex];  // ← get current level
+  
     overlay.innerHTML = `
       <div class="panel">
         <h2>Feedback</h2>
@@ -85,11 +87,15 @@ export function renderOverlay(overlay, sidebar, state, actions) {
         <p>Valid bonds formed: ${s.stats.validBonds}</p>
         <div class="goal-progress">
           ${(s.goal.targets || [])
-            .map(
-              (t) => `<p>${t.molecule} formed: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>`
-            )
+            .map((t) => `<p>${t.molecule} formed: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>`)
             .join("")}
         </div>
+        ${level.funFact ? `
+          <div class="fun-fact">
+            <strong>Did you know?</strong>
+            <p>${level.funFact}</p>
+          </div>
+        ` : ""}
         <div class="feedback-actions">
           <button id="restartSessionBtn" type="button">Restart session</button>
           ${hasNextLevel ? `<button id="nextLevelBtn" type="button">Next level</button>` : ""}

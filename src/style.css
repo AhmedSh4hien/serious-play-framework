@@ -455,3 +455,20 @@ button:focus-visible {
     font-size: 14px;
   }
 }
+
+.fun-fact {
+  margin-top: 14px;
+  margin-bottom: 16px;  
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(79, 160, 255, 0.08);
+  border: 1px solid rgba(79, 160, 255, 0.2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;   
+}
