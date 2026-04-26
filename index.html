@@ -2,10 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Molecule Prototype</title>
   </head>
   <body>
-    <canvas id="gameCanvas"></canvas>
+    <div id="app">
+      <div id="game-column">
+        <div id="game-area">
+          <canvas id="gameCanvas"></canvas>
+          <div id="overlay-root"></div>
+          <div id="debug-hud"></div>
+        </div>
+        <div id="bottom-bar">
+          <aside id="sidebar"></aside>
+          <div id="hud-root"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>

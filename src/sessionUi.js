@@ -1,13 +1,13 @@
 import { LEVELS } from "./levelsConfig.js";
 
-export function createSessionUi() {
-  const overlay = document.createElement("div");
-  overlay.id = "sessionOverlay";
-  document.body.appendChild(overlay);
-  return overlay;
+export function createSessionUi(container = document.body, sidebar = null) {
+  const el = document.createElement("div");
+  el.id = "sessionOverlay";
+  container.appendChild(el);
+  return { overlay: el, sidebar };
 }
 
-export function renderOverlay(overlay, state, actions) {
+export function renderOverlay(overlay, sidebar, state, actions) {
   const s = state.session;
   overlay.className = `phase-${s.phase}`;
 
@@ -18,7 +18,7 @@ export function renderOverlay(overlay, state, actions) {
   if (s.phase === "intro") {
     overlay.innerHTML = `
       <div class="panel">
-      <h2>${s.title}</h2>
+        <h2>${s.title}</h2>
         <p>${s.prompt}</p>
         <p><strong>Goal:</strong> Create ${goalText}.</p>
         <button id="startSessionBtn" type="button">Start</button>
@@ -29,31 +29,29 @@ export function renderOverlay(overlay, state, actions) {
   }
 
   if (s.phase === "simulation") {
-    overlay.innerHTML = `
-      <div class="panel panel--small">
-        <h3>Goal</h3>
-        <p>Create ${goalText}.</p>
-        <div class="goal-progress">
-  ${(s.goal.targets || [])
-    .map(
-      (t) => `
-        <p>${t.molecule}: ${s.createdMoleculeCounts[t.molecule] || 0}/${
-        t.targetCount
-      }</p>
-      `
-    )
-    .join("")}
-    </div>
-        <div class="sim-actions">
-          <button id="restartSimBtn" type="button" title="Restart level">↻</button>
-          <button id="finishSimBtn" type="button">Finish & Continue</button>
+    overlay.innerHTML = "";
+    if (sidebar) {
+      sidebar.innerHTML = `
+        <div class="panel panel--sidebar">
+          <h3>Goal</h3>
+          ${(s.goal.targets || [])
+            .map(
+              (t) => `<p>${t.molecule}: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>`
+            )
+            .join("")}
+          <div class="sim-actions">
+            <button id="restartSimBtn" type="button" title="Restart">↻</button>
+            <button id="finishSimBtn" type="button">Finish &amp; Continue</button>
+          </div>
         </div>
-      </div>
-    `;
-    overlay.querySelector("#finishSimBtn").onclick = actions.onFinishSimulation;
-    overlay.querySelector("#restartSimBtn").onclick = actions.onRestart;
+      `;
+      sidebar.querySelector("#finishSimBtn").onclick = actions.onFinishSimulation;
+      sidebar.querySelector("#restartSimBtn").onclick = actions.onRestart;
+    }
     return;
   }
+
+  if (sidebar) sidebar.innerHTML = "";
 
   if (s.phase === "quiz") {
     const q = s.quiz.questions[s.quiz.currentIndex];
@@ -64,15 +62,13 @@ export function renderOverlay(overlay, state, actions) {
         <div class="answers">
           ${q.options
             .map(
-              (opt, i) => `
-                <button class="answerBtn" type="button" data-index="${i}">${opt}</button>
-              `
+              (opt, i) =>
+                `<button class="answerBtn" type="button" data-index="${i}">${opt}</button>`
             )
             .join("")}
         </div>
       </div>
     `;
-
     overlay.querySelectorAll(".answerBtn").forEach((btn) => {
       btn.onclick = () => actions.onAnswer(Number(btn.dataset.index));
     });
@@ -81,7 +77,6 @@ export function renderOverlay(overlay, state, actions) {
 
   if (s.phase === "feedback") {
     const hasNextLevel = s.currentLevelIndex < LEVELS.length - 1;
-  
     overlay.innerHTML = `
       <div class="panel">
         <h2>Feedback</h2>
@@ -91,25 +86,17 @@ export function renderOverlay(overlay, state, actions) {
         <div class="goal-progress">
           ${(s.goal.targets || [])
             .map(
-              (t) => `
-                <p>${t.molecule} formed: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>
-              `
+              (t) => `<p>${t.molecule} formed: ${s.createdMoleculeCounts[t.molecule] || 0}/${t.targetCount}</p>`
             )
             .join("")}
         </div>
         <div class="feedback-actions">
           <button id="restartSessionBtn" type="button">Restart session</button>
-          ${
-            hasNextLevel
-              ? `<button id="nextLevelBtn" type="button">Next level</button>`
-              : ""
-          }
+          ${hasNextLevel ? `<button id="nextLevelBtn" type="button">Next level</button>` : ""}
         </div>
       </div>
     `;
-  
     overlay.querySelector("#restartSessionBtn").onclick = actions.onRestart;
-  
     if (hasNextLevel) {
       overlay.querySelector("#nextLevelBtn").onclick = actions.onNextLevel;
     }
@@ -135,22 +122,12 @@ export function answerQuestion(state, telemetry, selectedIndex) {
   const q = quiz.questions[quiz.currentIndex];
   const correct = selectedIndex === q.correctIndex;
 
-  quiz.answers.push({
-    questionId: q.id,
-    selectedIndex,
-    correct,
-  });
-
+  quiz.answers.push({ questionId: q.id, selectedIndex, correct });
   if (correct) quiz.score++;
 
-  telemetry.event("quiz_answered", {
-    questionId: q.id,
-    selectedIndex,
-    correct,
-  });
+  telemetry.event("quiz_answered", { questionId: q.id, selectedIndex, correct });
 
   quiz.currentIndex++;
-
   if (quiz.currentIndex >= quiz.questions.length) {
     state.session.phase = "feedback";
     telemetry.event("session_phase_changed", { phase: "feedback" });
@@ -160,6 +137,7 @@ export function answerQuestion(state, telemetry, selectedIndex) {
 export function resetSessionData(state) {
   const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
 
+  
   state.session.phase = "intro";
   state.session.topic = level.topic;
   state.session.title = level.title;
@@ -177,23 +155,12 @@ export function resetSessionData(state) {
   state.session.simEndedAtMs = null;
   state.session.isTrackingProgress = false;
 
-  state.session.createdMoleculeCounts = {
-    H2: 0,
-    Cl2: 0,
-    HCl: 0,
-    O2: 0,
-    H2O: 0,
-  };
+  state.session.createdMoleculeCounts = { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 };
 
-  state.session.inventory = {
-    H: 0,
-    O: 0,
-    Cl: 0,
-    ...level.inventory,
-  };
-
+  state.session.inventory = { H: 0, O: 0, Cl: 0, ...level.inventory };
   state.session.allowedAtomTypes = [...level.allowedAtomTypes];
   state.session.selectedSpawnType = level.allowedAtomTypes[0];
+  state.session.inputMode = "spawn";
 
   state.session.quiz.currentIndex = 0;
   state.session.quiz.answers = [];

@@ -1,130 +1,304 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  padding: 0;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #0f0f13;
+  color: #e0e0e0;
+  font-family: system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── App shell ── */
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  padding: 12px;
+  gap: 10px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #f7df1eaa);
+/* ── Game column ── */
+#game-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  width: 100%;
+  max-width: 1000px;
 }
 
-.card {
-  padding: 2em;
+/* ── Canvas container ── */
+#game-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: #1a1a2e;
 }
 
-.read-the-docs {
-  color: #888;
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
-
-#sessionOverlay {
-  position: fixed;
+/* ── Overlay ── */
+#overlay-root {
+  position: absolute;
   inset: 0;
-  z-index: 9998;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#overlay-root > * {
+  pointer-events: all;
+}
+
+/* ── Debug HUD ── */
+#debug-hud {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  font-family: monospace;
+  color: rgba(255,255,255,0.4);
+  pointer-events: none;
+  z-index: 20;
+  text-align: right;
+  line-height: 1.5;
+}
+
+/* ── Bottom bar ── */
+#bottom-bar {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── HUD root ── */
+#hud-root {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Game HUD ── */
+#gameUi {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ── HUD panels ── */
+.hud-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(18, 22, 32, 0.92);
+  color: white;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.hud-controls {
+  flex-shrink: 0;
+}
+
+/* ── Progress panel ──
+   Single target  → row layout with stretching bar
+   Multi targets  → column layout, each row has its own bar
+── */
+.hud-progress {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding-block: 2px;
+}
+
+/* Header row: "PROGRESS" label sits above in column mode */
+.hud-progress__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-progress__title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* Single-target: keep everything in one row */
+.hud-progress.is-single {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-progress.is-single .progress-row {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Multi-target: each row is its own line */
+.hud-progress.is-multi .progress-row {
+  width: 100%;
+}
+
+/* ── Progress row ── */
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.progress-molecule {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.9;
+  flex-shrink: 0;
+  min-width: 30px;
+}
+
+.progress-bar-wrap {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.1);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: rgba(79,160,255,0.8);
+  transition: width 0.3s ease;
+}
+
+.progress-row.is-complete .progress-bar-fill {
+  background: rgba(80,220,140,0.9);
+}
+
+.progress-count {
+  font-size: 12px;
+  opacity: 0.7;
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ── Mode toggle ── */
+.mode-toggle {
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  color: white;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.mode-toggle:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* ── Atom buttons ── */
+.toolbar-group {
+  display: flex;
+  gap: 8px;
+}
+
+.atom-btn {
+  min-width: 52px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.atom-btn:hover { background: rgba(255,255,255,0.12); }
+
+.atom-btn.is-selected {
+  border-color: rgba(120,180,255,0.9);
+  background: rgba(79,124,255,0.22);
+}
+
+.atom-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.atom-btn__label { font-weight: 700; font-size: 15px; }
+.atom-btn__count { font-size: 11px; opacity: 0.7; }
+
+/* ── Session overlay ── */
+#sessionOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0,0,0,0.45);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
 #sessionOverlay .panel {
-  width: min(560px, calc(100vw - 32px));
-  max-height: 85vh;
+  width: min(480px, calc(100% - 32px));
+  max-height: 85%;
   overflow-y: auto;
-  background: rgba(18, 22, 32, 0.96);
+  background: rgba(18,22,32,0.96);
   color: white;
   padding: 24px;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-  font-family: system-ui, sans-serif;
-  pointer-events: auto;
-}
-
-#sessionOverlay.phase-intro,
-#sessionOverlay.phase-quiz,
-#sessionOverlay.phase-feedback {
-  align-items: center;
-  justify-content: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
   pointer-events: auto;
 }
 
@@ -135,90 +309,149 @@ button:focus-visible {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   pointer-events: none;
-  padding: 24px 24px 32px 24px;
+  padding: 16px;
 }
-
 
 #sessionOverlay.phase-simulation .panel {
-  width: 320px;
+  width: 280px;
   pointer-events: auto;
 }
 
-#gameUi {
-  position: fixed;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
-  z-index: 9997;
-  display: none;
-  pointer-events: none;
+/* ── Generic buttons ── */
+button {
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 0.5em 1.1em;
+  font-size: 0.95em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: rgba(255,255,255,0.08);
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 }
 
-.game-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+button:hover {
+  background-color: rgba(255,255,255,0.14);
+  border-color: rgba(120,180,255,0.6);
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(120,180,255,0.8);
+  outline-offset: 2px;
+}
+
+/* ── Sidebar panels ── */
+#sidebar .panel,
+.panel--sidebar {
+  background: rgba(18,22,32,0.92);
+  border-radius: 14px;
   padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(18, 22, 32, 0.92);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
   color: white;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  pointer-events: auto;
 }
 
-.toolbar-group {
-  display: flex;
-  gap: 10px;
+#sidebar .panel h3,
+.panel--sidebar h3 {
+  font-size: 15px;
+  margin-bottom: 8px;
+  opacity: 0.9;
 }
 
-.atom-btn {
-  min-width: 72px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.06);
-  color: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font: inherit;
-}
-
-.atom-btn:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-.atom-btn.is-selected {
-  border-color: rgba(120,180,255,0.9);
-  background: rgba(79,124,255,0.22);
-}
-
-.atom-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.atom-btn__label {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.atom-btn__count {
+#sidebar .panel p,
+.panel--sidebar p {
   font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 6px;
   opacity: 0.8;
 }
 
-.toolbar-meta {
+.sim-actions {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 140px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.toolbar-goal,
-.toolbar-progress {
-  font-size: 14px;
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  html, body {
+    overflow: hidden; /* lock scroll on mobile too */
+  }
+
+  #app {
+    height: 100dvh;
+    padding: 8px;
+    gap: 8px;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+
+  #game-column {
+    flex: 1;
+    min-height: 0;
+    gap: 8px;
+  }
+
+  #game-area {
+    flex: 1;
+    min-height: 0;
+    border-radius: 10px;
+  }
+
+  #bottom-bar {
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  #sidebar { width: 100%; }
+  #hud-root { width: 100%; }
+  #debug-hud { display: none; }
+
+  #gameUi {
+    flex-direction: column;
+    gap: 8px;
+    height: auto;
+  }
+
+  .hud-panel {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .hud-controls {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mode-toggle { width: 100%; }
+
+  .toolbar-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .atom-btn { min-width: 56px; }
+
+  #sessionOverlay.phase-simulation { display: none; }
+
+  #sessionOverlay .panel {
+    width: min(92vw, 420px);
+    max-height: 85vh;
+  }
+
+  #sidebar .panel,
+  .panel--sidebar {
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: none;
+    width: 100%;
+  }
+
+  .sim-actions button,
+  #sidebar button {
+    padding: 0.45rem 0.8rem;
+    font-size: 14px;
+  }
 }

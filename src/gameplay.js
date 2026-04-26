@@ -50,12 +50,12 @@ export function initAtoms(state, canvas) {
 
     for (let i = 0; i < count; i++) {
       const x = entry.random
-        ? Math.random() * canvas.width
-        : entry.x ?? Math.random() * canvas.width;
+        ? Math.random() * canvas.clientWidth
+        : entry.x ?? Math.random() * canvas.clientWidth;
 
       const y = entry.random
-        ? Math.random() * canvas.height
-        : entry.y ?? Math.random() * canvas.height;
+        ? Math.random() * canvas.clientHeight
+        : entry.y ?? Math.random() * canvas.clientHeight;
 
       createAtom(state, entry.typeId, x, y);
     }
@@ -206,21 +206,21 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
 
   const goal = state.session.goal;
   const targets = goal.targets || [];
-  
+
   const completedTargetCount = targets.filter((t) => {
     const current = state.session.createdMoleculeCounts[t.molecule] || 0;
     return current >= t.targetCount;
   }).length;
-  
+
   state.session.stats.targetMoleculesFormed = completedTargetCount;
-  
+
   const allTargetsCompleted =
     targets.length > 0 &&
     targets.every((t) => {
       const current = state.session.createdMoleculeCounts[t.molecule] || 0;
       return current >= t.targetCount;
     });
-  
+
   if (
     state.session.phase === "simulation" &&
     !goal.completed &&
@@ -228,7 +228,7 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   ) {
     goal.completed = true;
     goal.completedAtMs = performance.now();
-  
+
     telemetry.event("goal_completed", {
       targets: targets.map((t) => ({
         molecule: t.molecule,
@@ -251,27 +251,37 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
 
 export function applyMouseForce({ state, physics }) {
   if (state.session.phase !== "simulation") return;
-  if (!state.input.isRightMouseDown) return;
+  if (state.session.inputMode !== "drag") return;
 
-  const radius = 140;
-  const strength = 0.0009;
+  const radius = 120;
+  const speed = 0.4;
 
   for (const atom of state.atoms) {
-    if (!atom.body || atom.locked) continue;
+    if (!atom.body) continue;
+
+    if (!state.input.isPointerDown) {
+      physics.Matter.Body.set(atom.body, "frictionAir", 0);
+      continue;
+    }
 
     const dx = state.input.mouseX - atom.x;
     const dy = state.input.mouseY - atom.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist < 8 || dist > radius) continue;
+    if (dist > radius) {
+      // Out of range — restore free float
+      physics.Matter.Body.set(atom.body, "frictionAir", 0);
+      continue;
+    }
 
-    const falloff = 1 - dist / radius;
-    const fx = (dx / dist) * strength * falloff;
-    const fy = (dy / dist) * strength * falloff;
+    if (dist < 8) continue;
 
-    physics.Matter.Body.applyForce(atom.body, atom.body.position, {
-      x: fx,
-      y: fy,
+    // Only atoms in range get damped and pulled
+    physics.Matter.Body.set(atom.body, "frictionAir", 0.08);
+    const scale = Math.min(dist, 12) / dist;
+    physics.Matter.Body.setVelocity(atom.body, {
+      x: dx * scale * speed,
+      y: dy * scale * speed,
     });
   }
 }

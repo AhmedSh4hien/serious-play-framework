@@ -84,32 +84,32 @@ export function draw(canvas, ctx, state) {
   }
 
   // HUD background
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillRect(6, 6, 220, 200);
+  // ctx.fillStyle = "rgba(255,255,255,0.75)";
+  // ctx.fillRect(6, 6, 220, 200);
 
-  // HUD
-  const fpsText = `FPS: ${state.fps}`;
-  ctx.font = "14px monospace";
+  // // HUD
+  // const fpsText = `FPS: ${state.fps}`;
+  // ctx.font = "14px monospace";
 
-  let fill = "#0a7a0a";
-  if (state.fps < 30) fill = "#cc0000";
-  else if (state.fps < 50) fill = "#b58900";
+  // let fill = "#0a7a0a";
+  // if (state.fps < 30) fill = "#cc0000";
+  // else if (state.fps < 50) fill = "#b58900";
 
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "rgba(255,255,255,1)";
-  ctx.strokeText(fpsText, 10, 20);
+  // ctx.lineWidth = 3;
+  // ctx.strokeStyle = "rgba(255,255,255,1)";
+  // ctx.strokeText(fpsText, 10, 20);
 
-  ctx.fillStyle = fill;
-  ctx.fillText(fpsText, 10, 20);
+  // ctx.fillStyle = fill;
+  // ctx.fillText(fpsText, 10, 20);
 
-  ctx.lineWidth = 1;
-  ctx.fillStyle = "#000000";
-  ctx.fillText(`Atoms: ${state.atoms.length}`, 10, 40);
-  ctx.fillText(`Selected: ${state.session.selectedSpawnType}`, 10, 60);
-  ctx.fillText(`H2: ${state.moleculeCounts.H2}`, 10, 80);
-  ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
-  ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
-  ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
-  ctx.fillText(`H2O: ${state.moleculeCounts.H2O}`, 10, 160);
-  ctx.fillText(`OH: ${state.moleculeCounts.OH}`, 10, 180);
+  // ctx.lineWidth = 1;
+  // ctx.fillStyle = "#000000";
+  // ctx.fillText(`Atoms: ${state.atoms.length}`, 10, 40);
+  // ctx.fillText(`Selected: ${state.session.selectedSpawnType}`, 10, 60);
+  // ctx.fillText(`H2: ${state.moleculeCounts.H2}`, 10, 80);
+  // ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
+  // ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
+  // ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
+  // ctx.fillText(`H2O: ${state.moleculeCounts.H2O}`, 10, 160);
+  // ctx.fillText(`OH: ${state.moleculeCounts.OH}`, 10, 180);
 }
