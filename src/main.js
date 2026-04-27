@@ -88,6 +88,7 @@ function renderOverlayIfNeeded(force = false) {
     },
     onFinishSimulation: () => {
       goToQuiz(state, telemetry);
+      telemetry.flushToSupabase();
       renderOverlayIfNeeded(true);
       renderHudIfNeeded(true);
     },
@@ -98,6 +99,7 @@ function renderOverlayIfNeeded(force = false) {
     },
     onRestart: () => {
       restartSession(state, telemetry);
+      telemetry.flushToSupabase();
       resizeCanvas();
       resetWorldFromState();
       renderOverlayIfNeeded(true);
@@ -212,7 +214,6 @@ function loop(t) {
   applyMouseForce({ state, physics });
   updatePhysical(physics, state);
   draw(canvas, ctx, state);
-  telemetry.tickUi();
 
   requestAnimationFrame(loop);
 }

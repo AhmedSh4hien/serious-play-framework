@@ -131,7 +131,14 @@ export function answerQuestion(state, telemetry, selectedIndex) {
   quiz.answers.push({ questionId: q.id, selectedIndex, correct });
   if (correct) quiz.score++;
 
-  telemetry.event("quiz_answered", { questionId: q.id, selectedIndex, correct });
+  telemetry.event("quiz_answered", {
+    questionId: q.id,
+    questionText: q.text,
+    selectedIndex: selectedIndex,
+    correct: selectedIndex === q.correctIndex,
+    correctIndex: q.correctIndex,
+    levelIndex: state.session.currentLevel ?? 0,
+  });
 
   quiz.currentIndex++;
   if (quiz.currentIndex >= quiz.questions.length) {

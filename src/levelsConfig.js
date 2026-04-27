@@ -34,6 +34,12 @@ export const LEVELS = [
         options: ["H2", "O2", "HCl"],
         correctIndex: 0,
       },
+      {
+        id: "l1_q3",
+        text: "Which molecule are you trying to make in this level?",
+        options: ["H2", "O2", "HCl"],
+        correctIndex: 0,
+      },
     ],
   },
 
