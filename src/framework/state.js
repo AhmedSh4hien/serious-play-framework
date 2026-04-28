@@ -1,5 +1,4 @@
-import { QUIZ_QUESTIONS } from "./quizConfig.js";
-import { LEVELS } from "./levelsConfig.js";
+import { LEVELS } from "../game/levelsConfig.js";
 
 const initialLevel = LEVELS[0];
 

@@ -1,5 +1,5 @@
-import { state } from "./state.js";
-import { canBond, getPairMolecule } from "./chemistry.js";
+import { state } from "./framework/state.js";
+import { canBond, getPairMolecule } from "./game/chemistry.js";
 import {
   createPhysics,
   handleResizePhysics,
@@ -8,12 +8,12 @@ import {
   updatePhysical,
   installCollisionBonding,
   resetPhysicsWorld,
-} from "./physics.js";
-import { draw } from "./render.js";
-import { createTelemetry } from "./telemetry.js";
+} from "./game/physics.js";
+import { draw } from "./ui/render.js";
+import { createTelemetry } from "./framework/telemetry.js";
 import { createSessionUi, renderOverlay, startSimulation, goToQuiz,
-  answerQuestion, restartSession, goToNextLevel, resetSessionData } from "./sessionUi.js";
-import { createGameUi, renderGameUi } from "./gameUi.js";
+  answerQuestion, restartSession, goToNextLevel, resetSessionData } from "./framework/sessionUi.js";
+import { createGameUi, renderGameUi } from "./ui/gameUi.js";
 import {
   initAtoms,
   decayIntermediateBonds,
@@ -21,8 +21,8 @@ import {
   onBond,
   applyMouseForce,
   spawnAtomAt,
-} from "./gameplay.js";
-import { installInput } from "./input.js";
+} from "./game/gameplay.js";
+import { installInput } from "./ui/input.js";
 import "./style.css";
 
 const canvas = document.getElementById("gameCanvas");
