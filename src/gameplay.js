@@ -78,10 +78,11 @@ export function spawnAtomAt({ x, y, state, onUiChange, telemetry }) {
   state.session.stats.atomsSpawned++;
 
   telemetry.event("atom_spawned", {
-    type: def.id,
+    atomType: def.id,      
     x: Math.round(x),
     y: Math.round(y),
     phase: state.session.phase,
+    levelIndex: state.session.currentLevelIndex ?? 0,
   });
 
   createAtom(state, typeId, x, y);

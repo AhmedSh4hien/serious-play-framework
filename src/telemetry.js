@@ -35,10 +35,15 @@ export function createTelemetry({ getState, onFlush }) {
     });
   }
 
+  let flushed = false;
+
   async function flushToSupabase() {
+    if (flushed) return;
+    flushed = true;
+
     event("session_end", {
       durationMs: nowMs(),
-      totalEvents: telemetry.events.length,
+      totalEvents: telemetry.events.length + 1,
     });
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
@@ -88,6 +93,7 @@ export function createTelemetry({ getState, onFlush }) {
   const sampleInterval = setInterval(() => sample(), 1000);
 
   window.addEventListener("beforeunload", () => {
+    if (flushed) return;
     try {
       sample();
       event("session_end");

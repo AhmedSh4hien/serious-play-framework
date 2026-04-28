@@ -1,5 +1,22 @@
 import { LEVELS } from "./levelsConfig.js";
 
+
+function transitionPhase(state, telemetry, nextPhase) {
+  const now = performance.now();
+  const prevPhase = state.session.phase;
+  const prevStartedAt = state.session.phaseStartedAtMs ?? now;
+
+  telemetry.event("session_phase_changed", {
+    fromPhase: prevPhase,
+    toPhase: nextPhase,
+    timeInPrevPhaseMs: Math.round(now - prevStartedAt),
+    levelIndex: state.session.currentLevelIndex ?? 0,
+  });
+
+  state.session.phase = nextPhase;
+  state.session.phaseStartedAtMs = now;
+}
+
 export function createSessionUi(container = document.body, sidebar = null) {
   const el = document.createElement("div");
   el.id = "sessionOverlay";
@@ -110,17 +127,15 @@ export function renderOverlay(overlay, sidebar, state, actions) {
 }
 
 export function startSimulation(state, telemetry) {
-  state.session.phase = "simulation";
   state.session.startedAtMs ??= performance.now();
   state.session.simStartedAtMs = performance.now();
   state.session.isTrackingProgress = true;
-  telemetry.event("session_phase_changed", { phase: "simulation" });
+  transitionPhase(state, telemetry, "simulation");
 }
 
 export function goToQuiz(state, telemetry) {
-  state.session.phase = "quiz";
   state.session.simEndedAtMs = performance.now();
-  telemetry.event("session_phase_changed", { phase: "quiz" });
+  transitionPhase(state, telemetry, "quiz");
 }
 
 export function answerQuestion(state, telemetry, selectedIndex) {
@@ -137,13 +152,12 @@ export function answerQuestion(state, telemetry, selectedIndex) {
     selectedIndex: selectedIndex,
     correct: selectedIndex === q.correctIndex,
     correctIndex: q.correctIndex,
-    levelIndex: state.session.currentLevel ?? 0,
+    levelIndex: state.session.currentLevelIndex ?? 0,
   });
 
   quiz.currentIndex++;
   if (quiz.currentIndex >= quiz.questions.length) {
-    state.session.phase = "feedback";
-    telemetry.event("session_phase_changed", { phase: "feedback" });
+    transitionPhase(state, telemetry, "feedback");
   }
 }
 
@@ -152,6 +166,7 @@ export function resetSessionData(state) {
 
   
   state.session.phase = "intro";
+  state.session.phaseStartedAtMs = performance.now();
   state.session.topic = level.topic;
   state.session.title = level.title;
   state.session.prompt = level.prompt;
@@ -187,8 +202,14 @@ export function resetSessionData(state) {
 }
 
 export function restartSession(state, telemetry) {
+  telemetry.event("session_restarted", {
+    fromPhase: state.session.phase,
+    levelIndex: state.session.currentLevelIndex ?? 0,
+    timeInPhaseMs: Math.round(
+      performance.now() - (state.session.phaseStartedAtMs ?? performance.now())
+    ),
+  });
   resetSessionData(state);
-  telemetry.event("session_restarted");
 }
 
 export function goToNextLevel(state, telemetry) {

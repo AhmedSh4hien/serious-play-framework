@@ -11,15 +11,8 @@ import {
 } from "./physics.js";
 import { draw } from "./render.js";
 import { createTelemetry } from "./telemetry.js";
-import {
-  createSessionUi,
-  renderOverlay,
-  startSimulation,
-  goToQuiz,
-  answerQuestion,
-  restartSession,
-  goToNextLevel,
-} from "./sessionUi.js";
+import { createSessionUi, renderOverlay, startSimulation, goToQuiz,
+  answerQuestion, restartSession, goToNextLevel, resetSessionData } from "./sessionUi.js";
 import { createGameUi, renderGameUi } from "./gameUi.js";
 import {
   initAtoms,
@@ -88,12 +81,14 @@ function renderOverlayIfNeeded(force = false) {
     },
     onFinishSimulation: () => {
       goToQuiz(state, telemetry);
-      telemetry.flushToSupabase();
       renderOverlayIfNeeded(true);
       renderHudIfNeeded(true);
     },
     onAnswer: (selectedIndex) => {
       answerQuestion(state, telemetry, selectedIndex);
+      if (state.session.phase === "feedback") {
+        telemetry.flushToSupabase(); 
+      }
       renderOverlayIfNeeded(true);
       renderHudIfNeeded(true);
     },
@@ -170,7 +165,7 @@ function resetWorldFromState() {
 }
 
 function bootSession() {
-  restartSession(state, telemetry);
+  resetSessionData(state);   
   resetWorldFromState();
   renderOverlayIfNeeded(true);
   renderHudIfNeeded(true);
@@ -269,7 +264,4 @@ installInput(canvas, state, {
 
 // 5. Start session (calls resetWorldFromState internally — no need to call it separately)
 bootSession();
-console.log("physics size:", physics.width, physics.height);
-console.log("canvas CSS size:", canvas.clientWidth, canvas.clientHeight);
-telemetry.event("session_phase_changed", { phase: state.session.phase });
 requestAnimationFrame(loop);
