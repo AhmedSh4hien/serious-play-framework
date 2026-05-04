@@ -1,5 +1,5 @@
-import { state } from "./games/chemistry/state.js";
-import { canBond, getPairMolecule } from "./game/chemistry.js";
+import { state } from "./state.js";
+import { canBond, getPairMolecule } from "./chemistry.js";
 import {
   createPhysics,
   handleResizePhysics,
@@ -8,8 +8,8 @@ import {
   updatePhysical,
   installCollisionBonding,
   resetPhysicsWorld,
-} from "./game/physics.js";
-import { draw } from "./ui/render.js";
+} from "./physics.js";
+import { draw } from "../../renderers/render.js";
 import { createTelemetry } from "../../framework/telemetry.js";
 import { createSessionUi, renderOverlay, startSimulation, goToQuiz,
   answerQuestion, restartSession, goToNextLevel, resetSessionData } from "../../framework/sessionUi.js";
@@ -21,9 +21,9 @@ import {
   onBond,
   applyMouseForce,
   spawnAtomAt,
-} from "./game/gameplay.js";
+} from "./gameplay.js";
 import { installInput } from "../../ui/input.js";
-import "./style.css";
+import "../../style.css";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
