@@ -1,4 +1,4 @@
-import { LEVELS } from "../game/levelsConfig.js";
+import { LEVELS } from "../games/chemistry/levelsConfig.js";
 
 
 function transitionPhase(state, telemetry, nextPhase) {

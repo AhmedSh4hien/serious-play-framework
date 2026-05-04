@@ -78,7 +78,7 @@ export function spawnAtomAt({ x, y, state, onUiChange, telemetry }) {
   state.session.stats.atomsSpawned++;
 
   telemetry.event("atom_spawned", {
-    atomType: def.id,      
+    atomType: def.id,
     x: Math.round(x),
     y: Math.round(y),
     phase: state.session.phase,
@@ -239,20 +239,21 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
     });
   }
 
-  telemetry.event("bond_formed", {
-    molecule,
-    aType: a.typeId,
-    bType: b.typeId,
-    aId: a.id,
-    bId: b.id,
-  });
+  if (state.session.phase === "simulation") {
+    telemetry.event("bond_formed", {
+      molecule,
+      aType: a.typeId,
+      bType: b.typeId,
+      aId: a.id,
+      bId: b.id,
+    });
+  }
 
   onUiChange?.();
 }
 
 export function applyMouseForce({ state, physics }) {
   if (state.session.phase !== "simulation") return;
-  if (state.session.inputMode !== "drag") return;
 
   const radius = 120;
   const speed = 0.4;
