@@ -1,3 +1,8 @@
+import {
+  BOND_COLORS,
+  DEFAULT_BOND_COLOR,
+} from "../games/chemistry/atomsConfig.js";
+
 export function draw(canvas, ctx, state) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -69,7 +74,7 @@ export function draw(canvas, ctx, state) {
       ctx.arc(bx, by, r, 0, Math.PI * 2);
       ctx.fillStyle = "#cc0000";
       ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,0.5)";
+      ctx.strokeStyle = BOND_COLORS[bond.molecule] ?? DEFAULT_BOND_COLOR;
       ctx.lineWidth = 1;
       ctx.stroke();
 
@@ -82,34 +87,4 @@ export function draw(canvas, ctx, state) {
       ctx.restore();
     }
   }
-
-  // HUD background
-  // ctx.fillStyle = "rgba(255,255,255,0.75)";
-  // ctx.fillRect(6, 6, 220, 200);
-
-  // // HUD
-  // const fpsText = `FPS: ${state.fps}`;
-  // ctx.font = "14px monospace";
-
-  // let fill = "#0a7a0a";
-  // if (state.fps < 30) fill = "#cc0000";
-  // else if (state.fps < 50) fill = "#b58900";
-
-  // ctx.lineWidth = 3;
-  // ctx.strokeStyle = "rgba(255,255,255,1)";
-  // ctx.strokeText(fpsText, 10, 20);
-
-  // ctx.fillStyle = fill;
-  // ctx.fillText(fpsText, 10, 20);
-
-  // ctx.lineWidth = 1;
-  // ctx.fillStyle = "#000000";
-  // ctx.fillText(`Atoms: ${state.atoms.length}`, 10, 40);
-  // ctx.fillText(`Selected: ${state.session.selectedSpawnType}`, 10, 60);
-  // ctx.fillText(`H2: ${state.moleculeCounts.H2}`, 10, 80);
-  // ctx.fillText(`Cl2: ${state.moleculeCounts.Cl2}`, 10, 100);
-  // ctx.fillText(`HCl: ${state.moleculeCounts.HCl}`, 10, 120);
-  // ctx.fillText(`O2: ${state.moleculeCounts.O2}`, 10, 140);
-  // ctx.fillText(`H2O: ${state.moleculeCounts.H2O}`, 10, 160);
-  // ctx.fillText(`OH: ${state.moleculeCounts.OH}`, 10, 180);
 }

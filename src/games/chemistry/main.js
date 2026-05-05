@@ -1,3 +1,10 @@
+// ─── Renderer ────────────────────────────────────────────────────────────────
+// Set USE_PIXI to true to use PixiJS (WebGL), false for Canvas 2D
+const USE_PIXI = false;
+
+import * as CanvasRenderer from "../../renderers/render.js";
+import * as PixiRenderer from "../../renderers/renderPixi.js";
+
 import { state } from "./state.js";
 import { canBond, getPairMolecule } from "./chemistry.js";
 import {
@@ -9,10 +16,17 @@ import {
   installCollisionBonding,
   resetPhysicsWorld,
 } from "./physics.js";
-import { draw } from "../../renderers/render.js";
 import { createTelemetry } from "../../framework/telemetry.js";
-import { createSessionUi, renderOverlay, startSimulation, goToQuiz,
-  answerQuestion, restartSession, goToNextLevel, resetSessionData } from "../../framework/sessionUi.js";
+import {
+  createSessionUi,
+  renderOverlay,
+  startSimulation,
+  goToQuiz,
+  answerQuestion,
+  restartSession,
+  goToNextLevel,
+  resetSessionData,
+} from "../../framework/sessionUi.js";
 import { createGameUi, renderGameUi } from "../../ui/gameUi.js";
 import {
   initAtoms,
@@ -25,13 +39,19 @@ import {
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
 
+const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
+
+// ─── Canvas setup ────────────────────────────────────────────────────────────
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+let ctx = USE_PIXI ? null : canvas.getContext("2d");
+
+if (USE_PIXI) await renderer.initPixi(canvas);
+
 const telemetry = createTelemetry({ getState: () => state });
 const debugEl = document.getElementById("debug-hud");
 
 const gameUi = createGameUi(document.getElementById("hud-root"));
-const physics = createPhysics(canvas);
+let physics;
 const sidebar = document.getElementById("sidebar");
 const { overlay } = createSessionUi(
   document.getElementById("overlay-root"),
@@ -40,6 +60,8 @@ const { overlay } = createSessionUi(
 
 let lastOverlayKey = "";
 let lastHudKey = "";
+
+// ─── Key helpers ─────────────────────────────────────────────────────────────
 
 function getOverlayKey() {
   const s = state.session;
@@ -63,6 +85,8 @@ function getHudKey() {
   ].join("|");
 }
 
+// ─── Render helpers ──────────────────────────────────────────────────────────
+
 function renderOverlayIfNeeded(force = false) {
   const key = getOverlayKey();
   if (!force && key === lastOverlayKey) return;
@@ -75,7 +99,7 @@ function renderOverlayIfNeeded(force = false) {
       renderHudIfNeeded(true);
       requestAnimationFrame(() => {
         resizeCanvas();
-        resetWorldFromState(); 
+        resetWorldFromState();
         renderHudIfNeeded(true);
       });
     },
@@ -87,7 +111,7 @@ function renderOverlayIfNeeded(force = false) {
     onAnswer: (selectedIndex) => {
       answerQuestion(state, telemetry, selectedIndex);
       if (state.session.phase === "feedback") {
-        telemetry.flushToSupabase(); 
+        telemetry.flushToSupabase();
       }
       renderOverlayIfNeeded(true);
       renderHudIfNeeded(true);
@@ -128,24 +152,29 @@ function renderHudIfNeeded(force = false) {
   });
 }
 
+// ─── Canvas / world helpers ──────────────────────────────────────────────────
+
 function resizeCanvas() {
   const container = canvas.parentElement;
   const rect = container.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
+  if (USE_PIXI) {
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+  } else {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
 
-  canvas.width = Math.round(rect.width * dpr);
-  canvas.height = Math.round(rect.height * dpr);
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.scale(dpr, dpr);
-
-  handleResizePhysics(physics, {
-    width: rect.width,
-    height: rect.height,
-  });
+  // Guard: physics doesn't exist yet on the first resizeCanvas() call
+  if (physics) {
+    handleResizePhysics(physics, { width: rect.width, height: rect.height });
+  }
 }
 
 function resetWorldFromState() {
@@ -165,11 +194,13 @@ function resetWorldFromState() {
 }
 
 function bootSession() {
-  resetSessionData(state);   
+  resetSessionData(state);
   resetWorldFromState();
   renderOverlayIfNeeded(true);
   renderHudIfNeeded(true);
 }
+
+// ─── Loop ────────────────────────────────────────────────────────────────────
 
 function updateFps(t) {
   state.framesThisSecond++;
@@ -208,7 +239,7 @@ function loop(t) {
   ensureBondConstraints(physics, state);
   applyMouseForce({ state, physics });
   updatePhysical(physics, state);
-  draw(canvas, ctx, state);
+  renderer.draw(canvas, ctx, state);
 
   requestAnimationFrame(loop);
 }
@@ -219,13 +250,13 @@ window.addEventListener("resize", resizeCanvas);
 
 // 1. Size the canvas correctly first
 resizeCanvas();
-
+physics = createPhysics(canvas);
 // 2. Sync physics walls to match the actual canvas size
 //    (createPhysics runs before resizeCanvas so walls would be at the wrong Y without this)
-handleResizePhysics(physics, {
-  width: canvas.clientWidth,
-  height: canvas.clientHeight,
-});
+// handleResizePhysics(physics, {
+//   width: canvas.clientWidth,
+//   height: canvas.clientHeight,
+// });
 
 // 3. Wire up collision bonding
 installCollisionBonding(
@@ -243,7 +274,7 @@ installCollisionBonding(
   }
 );
 
-// 4. Wire up input — spawn and drag are mode-aware in input.js
+// 4. Wire up input
 installInput(canvas, state, {
   onSpawn: (x, y) => {
     if (state.session.phase !== "simulation") return;
@@ -262,6 +293,6 @@ installInput(canvas, state, {
   },
 });
 
-// 5. Start session (calls resetWorldFromState internally — no need to call it separately)
+// 5. Boot
 bootSession();
 requestAnimationFrame(loop);

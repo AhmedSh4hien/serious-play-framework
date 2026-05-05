@@ -41,6 +41,7 @@ html, body {
   position: relative;
   flex: 1;
   min-height: 0;
+  max-height: calc(100dvh - 180px); /* prevent overshooting bottom bar */
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.08);
