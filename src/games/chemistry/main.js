@@ -38,6 +38,7 @@ import {
 } from "./gameplay.js";
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
+import { LEVELS } from "./levelsConfig.js";
 
 const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
 
@@ -55,7 +56,8 @@ let physics;
 const sidebar = document.getElementById("sidebar");
 const { overlay } = createSessionUi(
   document.getElementById("overlay-root"),
-  sidebar
+  sidebar,
+  LEVELS
 );
 
 let lastOverlayKey = "";
