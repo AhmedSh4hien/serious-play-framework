@@ -34,21 +34,32 @@ html, body {
   gap: 10px;
   width: 100%;
   max-width: 1000px;
+  position: relative;
 }
 
-/* ── Canvas container ── */
-#game-area {
+/* ── Shared game containers ── */
+#game-area,
+#game-root {
   position: relative;
   flex: 1;
   min-height: 0;
-  max-height: calc(100dvh - 180px); /* prevent overshooting bottom bar */
+  width: 100%;
+  max-height: calc(100dvh - 180px);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.08);
   background: #1a1a2e;
 }
 
+/* Chemistry canvas */
 #gameCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Recycling Pixi canvas */
+#game-root canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -131,10 +142,7 @@ html, body {
   flex-shrink: 0;
 }
 
-/* ── Progress panel ──
-   Single target  → row layout with stretching bar
-   Multi targets  → column layout, each row has its own bar
-── */
+/* ── Progress panel ── */
 .hud-progress {
   flex: 1;
   display: flex;
@@ -146,7 +154,6 @@ html, body {
   padding-block: 2px;
 }
 
-/* Header row: "PROGRESS" label sits above in column mode */
 .hud-progress__header {
   display: flex;
   align-items: center;
@@ -162,7 +169,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* Single-target: keep everything in one row */
 .hud-progress.is-single {
   flex-direction: row;
   align-items: center;
@@ -174,7 +180,6 @@ html, body {
   min-width: 0;
 }
 
-/* Multi-target: each row is its own line */
 .hud-progress.is-multi .progress-row {
   width: 100%;
 }
@@ -263,7 +268,9 @@ html, body {
   transition: background 0.15s, border-color 0.15s;
 }
 
-.atom-btn:hover { background: rgba(255,255,255,0.12); }
+.atom-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
 
 .atom-btn.is-selected {
   border-color: rgba(120,180,255,0.9);
@@ -275,8 +282,15 @@ html, body {
   cursor: not-allowed;
 }
 
-.atom-btn__label { font-weight: 700; font-size: 15px; }
-.atom-btn__count { font-size: 11px; opacity: 0.7; }
+.atom-btn__label {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.atom-btn__count {
+  font-size: 11px;
+  opacity: 0.7;
+}
 
 /* ── Session overlay ── */
 #sessionOverlay {
@@ -376,7 +390,7 @@ button:focus-visible {
 /* ── Mobile ── */
 @media (max-width: 640px) {
   html, body {
-    overflow: hidden; /* lock scroll on mobile too */
+    overflow: hidden;
   }
 
   #app {
@@ -393,10 +407,12 @@ button:focus-visible {
     gap: 8px;
   }
 
-  #game-area {
+  #game-area,
+  #game-root {
     flex: 1;
     min-height: 0;
     border-radius: 10px;
+    max-height: none;
   }
 
   #bottom-bar {
@@ -459,7 +475,7 @@ button:focus-visible {
 
 .fun-fact {
   margin-top: 14px;
-  margin-bottom: 16px;  
+  margin-bottom: 16px;
   padding: 12px 14px;
   border-radius: 10px;
   background: rgba(79, 160, 255, 0.08);
@@ -471,5 +487,5 @@ button:focus-visible {
 .feedback-actions {
   display: flex;
   gap: 8px;
-  margin-top: 16px;   
+  margin-top: 16px;
 }
