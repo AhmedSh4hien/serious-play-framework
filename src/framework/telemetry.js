@@ -28,10 +28,10 @@ export function createTelemetry({ getState, onFlush }) {
     const s = getState();
     telemetry.samples.push({
       t: nowMs(),
-      atoms: s.atoms.length,
-      bonds: s.bonds.length,
-      fps: s.fps,
-      moleculeCounts: { ...s.moleculeCounts },
+      atoms: s.atoms?.length ?? 0,
+      bonds: s.bonds?.length ?? 0,
+      fps: s.fps ?? 0,
+      moleculeCounts: { ...(s.moleculeCounts ?? {}) },
     });
   }
 
