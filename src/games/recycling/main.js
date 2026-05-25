@@ -15,6 +15,18 @@ import {
 } from '../../framework/sessionUi.js';
 import '../../style.css';
 
+
+window.addEventListener('unhandledrejection', e => {
+  document.body.style.cssText = 'background:#fff;color:red;padding:20px;font:16px monospace';
+  document.body.innerHTML = '<pre>' + (e.reason?.stack || e.reason) + '</pre>';
+});
+
+window.addEventListener('error', e => {
+  document.body.style.cssText = 'background:#fff;color:red;padding:20px;font:16px monospace';
+  document.body.innerHTML = '<pre>' + e.message + '\n' + e.filename + ':' + e.lineno + '</pre>';
+});
+
+
 // ─── PixiJS app ───────────────────────────────────────────────────────────────
 
 const app = new PIXI.Application();
