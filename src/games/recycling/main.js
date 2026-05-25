@@ -16,28 +16,31 @@ import {
 import '../../style.css';
 
 
-window.addEventListener('unhandledrejection', e => {
-  document.body.style.cssText = 'background:#fff;color:red;padding:20px;font:16px monospace';
-  document.body.innerHTML = '<pre>' + (e.reason?.stack || e.reason) + '</pre>';
-});
-
-window.addEventListener('error', e => {
-  document.body.style.cssText = 'background:#fff;color:red;padding:20px;font:16px monospace';
-  document.body.innerHTML = '<pre>' + e.message + '\n' + e.filename + ':' + e.lineno + '</pre>';
-});
-
 
 // ─── PixiJS app ───────────────────────────────────────────────────────────────
 
+// with this:
 const app = new PIXI.Application();
 
-await app.init({
-  resizeTo: document.getElementById('game-root'),
-  background: 0x1a1a2e,
-  antialias: true,
-  autoDensity: true,
-  resolution: Math.min(window.devicePixelRatio || 1, 2),
-});
+try {
+  await app.init({
+    resizeTo: document.getElementById('game-root'),
+    background: 0x1a1a2e,
+    antialias: true,
+    autoDensity: true,
+    resolution: Math.min(window.devicePixelRatio || 1, 2),
+  });
+} catch (e) {
+  // WebGL failed, try canvas fallback
+  await app.init({
+    resizeTo: document.getElementById('game-root'),
+    background: 0x1a1a2e,
+    preference: 'webgl',
+    antialias: false,
+    autoDensity: true,
+    resolution: 1,
+  });
+}
 
 document.getElementById('game-root').appendChild(app.canvas);
 app.stage.interactive = true;
