@@ -19,7 +19,11 @@ import '../../style.css';
 
 // ─── PixiJS app ───────────────────────────────────────────────────────────────
 
-// with this:
+await new Promise(r => {
+  if (document.readyState !== 'loading') r();
+  else document.addEventListener('DOMContentLoaded', r, { once: true });
+});
+
 const app = new PIXI.Application();
 
 try {
