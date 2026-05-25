@@ -19,36 +19,45 @@ import '../../style.css';
 
 // ─── PixiJS app ───────────────────────────────────────────────────────────────
 
+// ─── PixiJS app ───────────────────────────────────────────────────────────────
+
+window.addEventListener('unhandledrejection', (e) => {
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:1rem;font-size:12px">UNHANDLED: ${e.reason?.stack ?? e.reason}</pre>`
+  );
+});
+
 await new Promise(r => {
   if (document.readyState !== 'loading') r();
   else document.addEventListener('DOMContentLoaded', r, { once: true });
 });
 
-const app = new PIXI.Application();
+const gameRoot = document.getElementById('game-root');
+if (!gameRoot) {
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:1rem">game-root is NULL</pre>`
+  );
+  throw new Error('game-root is null');
+}
 
+const app = new PIXI.Application();
 try {
   await app.init({
-    resizeTo: document.getElementById('game-root'),
+    resizeTo: gameRoot,
     background: 0x1a1a2e,
     antialias: true,
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2),
   });
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre style="position:fixed;top:0;left:0;background:green;color:white;z-index:9999;padding:1rem">PIXI OK</pre>`
+  );
 } catch (e) {
-  // WebGL failed, try canvas fallback
-  await app.init({
-    resizeTo: document.getElementById('game-root'),
-    background: 0x1a1a2e,
-    preference: 'webgl',
-    antialias: false,
-    autoDensity: true,
-    resolution: 1,
-  });
+  document.body.insertAdjacentHTML('beforeend',
+    `<pre style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:1rem">PIXI FAILED: ${e.stack}</pre>`
+  );
+  throw e;
 }
-
-document.getElementById('game-root').appendChild(app.canvas);
-app.stage.interactive = true;
-app.stage.hitArea = app.screen;
 // ─── Framework modules ────────────────────────────────────────────────────────
 
 const telemetry = createTelemetry({ getState: () => state });
