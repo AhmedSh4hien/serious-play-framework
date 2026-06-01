@@ -1,8 +1,4 @@
 import { Application, Graphics, Text, TextStyle } from "pixi.js";
-import {
-  BOND_COLORS,
-  DEFAULT_BOND_COLOR,
-} from "../games/chemistry/atomsConfig.js";
 
 function toHex(str) { return parseInt(str.replace("#", ""), 16); }
 
@@ -21,7 +17,6 @@ export async function initPixi(canvas) {
     resizeTo: canvas,
   });
 
-  // Scale stage DOWN to CSS pixels so coordinates match pointer events
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   app.stage.scale.set(1 / dpr);
 
@@ -43,7 +38,7 @@ export function draw(canvas, _ctx, state) {
     const b = state.atomById.get(bond.bId);
     if (!a || !b) continue;
 
-    const color = toHex(BOND_COLORS[bond.molecule] ?? DEFAULT_BOND_COLOR);
+    const color = toHex(bond.color ?? "#888888");
     bondLayer.moveTo(a.x, a.y);
     bondLayer.lineTo(b.x, b.y);
     bondLayer.stroke({ width: 3, color });
@@ -51,29 +46,23 @@ export function draw(canvas, _ctx, state) {
 
   // Atoms
   for (const a of state.atoms) {
-    // Circle fill
     atomLayer
       .circle(a.x, a.y, a.radius)
-      .fill({ color: a.color })
+      .fill({ color: toHex(a.color) })
       .stroke({ width: 1, color: 0x000000 });
 
-    // OH badge
-    const isInOH = state.bonds.some(
-      (b) => b.molecule === "OH" && (b.aId === a.id || b.bId === a.id)
-    );
-    if (isInOH && a.typeId === "O") {
+    if (a.showOHBadge) {
       const r = Math.max(5, a.radius * 0.45);
       const bx = a.x + a.radius * 0.65;
       const by = a.y - a.radius * 0.65;
       atomLayer
         .circle(bx, by, r)
         .fill({ color: 0xcc0000 })
-        .stroke({ width: 1, color: 0x00000080 });
+        .stroke({ width: 1, color: 0x00bbbb });
     }
   }
 
-  // Text labels (separate pass — Graphics can't do text)
-  // Clear old labels
+  // Text labels
   app.stage.children
     .filter((c) => c._isAtomLabel)
     .forEach((c) => app.stage.removeChild(c));
@@ -96,11 +85,7 @@ export function draw(canvas, _ctx, state) {
     label._isAtomLabel = true;
     app.stage.addChild(label);
 
-    // OH minus badge label
-    const isInOH = state.bonds.some(
-      (b) => b.molecule === "OH" && (b.aId === a.id || b.bId === a.id)
-    );
-    if (isInOH && a.typeId === "O") {
+    if (a.showOHBadge) {
       const r = Math.max(5, a.radius * 0.45);
       const bx = a.x + a.radius * 0.65;
       const by = a.y - a.radius * 0.65;

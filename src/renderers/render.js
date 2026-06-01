@@ -1,8 +1,3 @@
-import {
-  BOND_COLORS,
-  DEFAULT_BOND_COLOR,
-} from "../games/chemistry/atomsConfig.js";
-
 export function draw(canvas, ctx, state) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -13,13 +8,7 @@ export function draw(canvas, ctx, state) {
     const b = state.atomById.get(bond.bId);
     if (!a || !b) continue;
 
-    if (bond.molecule === "H2") ctx.strokeStyle = "#4f8fff";
-    else if (bond.molecule === "Cl2") ctx.strokeStyle = "#33aa33";
-    else if (bond.molecule === "HCl") ctx.strokeStyle = "#aa33aa";
-    else if (bond.molecule === "O2") ctx.strokeStyle = "#ff8800";
-    else if (bond.molecule === "OH") ctx.strokeStyle = "#00bbbb";
-    else if (bond.molecule === "H2O") ctx.strokeStyle = "#0055ff";
-    else ctx.strokeStyle = "#888888";
+    ctx.strokeStyle = bond.color ?? "#888888";
 
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
@@ -29,7 +18,6 @@ export function draw(canvas, ctx, state) {
 
   // Atoms
   for (const a of state.atoms) {
-    // circle
     ctx.beginPath();
     ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
     ctx.fillStyle = a.color;
@@ -38,52 +26,37 @@ export function draw(canvas, ctx, state) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // label on top
-    const label = a.typeId;
-    if (label) {
+    if (a.typeId) {
       ctx.save();
-
       const fontPx = Math.max(10, Math.floor(a.radius * 1.1));
       ctx.font = `bold ${fontPx}px monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
       ctx.lineWidth = 3;
       ctx.strokeStyle = "rgba(255,255,255,1)";
-      ctx.strokeText(label, a.x, a.y);
-
+      ctx.strokeText(a.typeId, a.x, a.y);
       ctx.fillStyle = "#111";
-      ctx.fillText(label, a.x, a.y);
-
+      ctx.fillText(a.typeId, a.x, a.y);
       ctx.restore();
     }
 
-    // OH ion badge (ONLY while it's in an OH bond)
-    const isInOH = state.bonds.some(
-      (b) => b.molecule === "OH" && (b.aId === a.id || b.bId === a.id)
-    );
-
-    if (isInOH && a.typeId === "O") {
+    if (a.showOHBadge) {
       ctx.save();
-
       const r = Math.max(5, a.radius * 0.45);
       const bx = a.x + a.radius * 0.65;
       const by = a.y - a.radius * 0.65;
-
       ctx.beginPath();
       ctx.arc(bx, by, r, 0, Math.PI * 2);
       ctx.fillStyle = "#cc0000";
       ctx.fill();
-      ctx.strokeStyle = BOND_COLORS[bond.molecule] ?? DEFAULT_BOND_COLOR;
+      ctx.strokeStyle = "#00bbbb";
       ctx.lineWidth = 1;
       ctx.stroke();
-
       ctx.font = `bold ${Math.max(10, r * 1.6)}px monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#fff";
-      ctx.fillText("−", bx, by + 0.5); // U+2212
-
+      ctx.fillText("−", bx, by + 0.5);
       ctx.restore();
     }
   }

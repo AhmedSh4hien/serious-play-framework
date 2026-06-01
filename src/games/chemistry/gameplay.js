@@ -1,14 +1,7 @@
-import { ATOM_TYPES } from "./atomsConfig.js";
+import { ATOM_TYPES, BOND_COLORS, DEFAULT_BOND_COLOR } from "./atomsConfig.js";
 import { canBond, getPairMolecule, shouldLockAfterBond } from "./chemistry.js";
 import { createBondConstraint } from "./physics.js";
 import { LEVELS } from "./levelsConfig.js";
-
-// const ATOM_TYPE_IDS = ["H", "O", "Cl"];
-
-// function randomAtomTypeId() {
-//   const i = Math.floor(Math.random() * ATOM_TYPE_IDS.length);
-//   return ATOM_TYPE_IDS[i];
-// }
 
 function alreadyBonded(state, a, b) {
   return state.bonds.some(
@@ -19,7 +12,6 @@ function alreadyBonded(state, a, b) {
 
 function createAtom(state, typeId, x, y) {
   const def = ATOM_TYPES[typeId];
-
   const atom = {
     id: state.nextAtomId++,
     typeId: def.id,
@@ -31,9 +23,9 @@ function createAtom(state, typeId, x, y) {
     vy: (Math.random() - 0.5) * 2,
     radius: def.radius,
     color: def.color,
+    showOHBadge: false,
     body: null,
   };
-
   state.atoms.push(atom);
   state.atomById.set(atom.id, atom);
   return atom;
@@ -41,22 +33,18 @@ function createAtom(state, typeId, x, y) {
 
 export function initAtoms(state, canvas) {
   state.nextAtomId = 0;
-
   const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
   const startingAtoms = level.startingAtoms ?? [];
 
   for (const entry of startingAtoms) {
     const count = entry.count ?? 1;
-
     for (let i = 0; i < count; i++) {
       const x = entry.random
         ? Math.random() * canvas.clientWidth
         : entry.x ?? Math.random() * canvas.clientWidth;
-
       const y = entry.random
         ? Math.random() * canvas.clientHeight
         : entry.y ?? Math.random() * canvas.clientHeight;
-
       createAtom(state, entry.typeId, x, y);
     }
   }
@@ -68,12 +56,10 @@ export function initAtoms(state, canvas) {
 
 export function spawnAtomAt({ x, y, state, onUiChange, telemetry }) {
   if (state.session.phase !== "simulation") return;
-
   const typeId = state.session.selectedSpawnType;
   if ((state.session.inventory[typeId] || 0) <= 0) return;
 
   const def = ATOM_TYPES[typeId];
-
   state.session.inventory[typeId]--;
   state.session.stats.atomsSpawned++;
 
@@ -87,6 +73,16 @@ export function spawnAtomAt({ x, y, state, onUiChange, telemetry }) {
 
   createAtom(state, typeId, x, y);
   onUiChange?.();
+}
+
+export function refreshAtomBadges(state) {
+  for (const atom of state.atoms) {
+    atom.showOHBadge =
+      atom.typeId === "O" &&
+      state.bonds.some(
+        (b) => b.molecule === "OH" && (b.aId === atom.id || b.bId === atom.id)
+      );
+  }
 }
 
 export function decayIntermediateBonds({ now, state, physics }) {
@@ -110,6 +106,8 @@ export function decayIntermediateBonds({ now, state, physics }) {
 
     state.bonds.splice(i, 1);
   }
+
+  refreshAtomBadges(state);
 }
 
 export function finalizeWaterMolecules({ state, onUiChange }) {
@@ -119,10 +117,8 @@ export function finalizeWaterMolecules({ state, onUiChange }) {
     const a = state.atomById.get(bond.aId);
     const b = state.atomById.get(bond.bId);
     if (!a || !b) continue;
-
     if (!neighbors.has(a.id)) neighbors.set(a.id, []);
     if (!neighbors.has(b.id)) neighbors.set(b.id, []);
-
     neighbors.get(a.id).push(b);
     neighbors.get(b.id).push(a);
   }
@@ -148,7 +144,10 @@ export function finalizeWaterMolecules({ state, onUiChange }) {
           (bond.aId === o.id && bond.bId === h2.id) ||
           (bond.aId === h2.id && bond.bId === o.id);
 
-        if (isOH1 || isOH2) bond.molecule = "H2O";
+        if (isOH1 || isOH2) {
+          bond.molecule = "H2O";
+          bond.color = BOND_COLORS["H2O"] ?? DEFAULT_BOND_COLOR;
+        }
       }
 
       o.locked = true;
@@ -164,7 +163,10 @@ export function finalizeWaterMolecules({ state, onUiChange }) {
     }
   }
 
-  if (changed) onUiChange?.();
+  if (changed) {
+    refreshAtomBadges(state);
+    onUiChange?.();
+  }
 }
 
 export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
@@ -176,7 +178,6 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   if (!molecule) return;
 
   state.session.stats.validBonds++;
-
   a.currentBonds++;
   b.currentBonds++;
 
@@ -193,6 +194,7 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
     molecule,
     constraint: null,
     createdAt: performance.now(),
+    color: BOND_COLORS[molecule] ?? DEFAULT_BOND_COLOR,
   };
 
   if (shouldLockAfterBond(molecule)) {
@@ -204,16 +206,10 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   bond.constraint = createBondConstraint(physics, a, b);
 
   finalizeWaterMolecules({ state, onUiChange });
+  refreshAtomBadges(state);
 
   const goal = state.session.goal;
   const targets = goal.targets || [];
-
-  const completedTargetCount = targets.filter((t) => {
-    const current = state.session.createdMoleculeCounts[t.molecule] || 0;
-    return current >= t.targetCount;
-  }).length;
-
-  state.session.stats.targetMoleculesFormed = completedTargetCount;
 
   const allTargetsCompleted =
     targets.length > 0 &&
@@ -222,6 +218,11 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
       return current >= t.targetCount;
     });
 
+  state.session.stats.targetMoleculesFormed = targets.filter((t) => {
+    const current = state.session.createdMoleculeCounts[t.molecule] || 0;
+    return current >= t.targetCount;
+  }).length;
+
   if (
     state.session.phase === "simulation" &&
     !goal.completed &&
@@ -229,7 +230,6 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   ) {
     goal.completed = true;
     goal.completedAtMs = performance.now();
-
     telemetry.event("goal_completed", {
       targets: targets.map((t) => ({
         molecule: t.molecule,
@@ -271,14 +271,12 @@ export function applyMouseForce({ state, physics }) {
     const dist = Math.hypot(dx, dy);
 
     if (dist > radius) {
-      // Out of range — restore free float
       physics.Matter.Body.set(atom.body, "frictionAir", 0);
       continue;
     }
 
     if (dist < 8) continue;
 
-    // Only atoms in range get damped and pulled
     physics.Matter.Body.set(atom.body, "frictionAir", 0.08);
     const scale = Math.min(dist, 12) / dist;
     physics.Matter.Body.setVelocity(atom.body, {

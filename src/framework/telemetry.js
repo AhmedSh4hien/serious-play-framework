@@ -9,7 +9,7 @@ export function createTelemetry({ getState, onFlush }) {
   const t0 = performance.now();
 
   const telemetry = {
-    schema: "molecule-proto-telemetry-v1",
+    schema: "serious-play-framework-v1",
     sessionId,
     startedAtIso: new Date().toISOString(),
     events: [],
@@ -31,7 +31,6 @@ export function createTelemetry({ getState, onFlush }) {
       atoms: s.atoms?.length ?? 0,
       bonds: s.bonds?.length ?? 0,
       fps: s.fps ?? 0,
-      moleculeCounts: { ...(s.moleculeCounts ?? {}) },
     });
   }
 
@@ -45,6 +44,7 @@ export function createTelemetry({ getState, onFlush }) {
       durationMs: nowMs(),
       totalEvents: telemetry.events.length + 1,
     });
+
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
         method: "POST",
@@ -62,6 +62,7 @@ export function createTelemetry({ getState, onFlush }) {
           samples: telemetry.samples,
         }),
       });
+
       if (!res.ok) {
         const err = await res.text();
         console.warn("[telemetry] flush failed:", err);

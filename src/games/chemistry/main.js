@@ -7,15 +7,7 @@ import * as PixiRenderer from "../../renderers/renderPixi.js";
 
 import { state } from "./state.js";
 import { canBond, getPairMolecule } from "./chemistry.js";
-import {
-  createPhysics,
-  handleResizePhysics,
-  convertToPhysical,
-  ensureBondConstraints,
-  updatePhysical,
-  installCollisionBonding,
-  resetPhysicsWorld,
-} from "./physics.js";
+import { matterProvider } from "../../physics/matterProvider.js";
 import { createTelemetry } from "../../framework/telemetry.js";
 import {
   createSessionUi,
@@ -175,12 +167,15 @@ function resizeCanvas() {
 
   // Guard: physics doesn't exist yet on the first resizeCanvas() call
   if (physics) {
-    handleResizePhysics(physics, { width: rect.width, height: rect.height });
+    matterProvider.handleResizePhysics(physics, {
+      width: rect.width,
+      height: rect.height,
+    });
   }
 }
 
 function resetWorldFromState() {
-  resetPhysicsWorld(physics);
+  matterProvider.resetPhysicsWorld(physics);
 
   if (state._bodyToAtom) state._bodyToAtom.clear();
 
@@ -191,8 +186,8 @@ function resetWorldFromState() {
   state.moleculeCounts = { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 };
 
   initAtoms(state, canvas);
-  convertToPhysical(physics, state);
-  ensureBondConstraints(physics, state);
+  matterProvider.convertToPhysical(physics, state);
+  matterProvider.ensureBondConstraints(physics, state);
 }
 
 function bootSession() {
@@ -237,10 +232,10 @@ function loop(t) {
       `H2: ${state.moleculeCounts.H2} | O2: ${state.moleculeCounts.O2} | Cl2: ${state.moleculeCounts.Cl2}`;
   }
 
-  convertToPhysical(physics, state);
-  ensureBondConstraints(physics, state);
+  matterProvider.convertToPhysical(physics, state);
+  matterProvider.ensureBondConstraints(physics, state);
   applyMouseForce({ state, physics });
-  updatePhysical(physics, state);
+  matterProvider.updatePhysical(physics, state);
   renderer.draw(canvas, ctx, state);
 
   requestAnimationFrame(loop);
@@ -252,22 +247,20 @@ window.addEventListener("resize", resizeCanvas);
 
 // 1. Size the canvas correctly first
 resizeCanvas();
-physics = createPhysics(canvas);
-// 2. Sync physics walls to match the actual canvas size
-//    (createPhysics runs before resizeCanvas so walls would be at the wrong Y without this)
-// handleResizePhysics(physics, {
-//   width: canvas.clientWidth,
-//   height: canvas.clientHeight,
-// });
+physics = matterProvider.createPhysics(canvas);
 
 // 3. Wire up collision bonding
-installCollisionBonding(
+matterProvider.installCollisionBonding(
   physics,
   state,
   { canBond, getPairMolecule },
   (a, b) => {
     onBond({
-      a, b, state, physics, telemetry,
+      a,
+      b,
+      state,
+      physics,
+      telemetry,
       onUiChange: () => {
         renderHudIfNeeded(true);
         renderOverlayIfNeeded(true);
