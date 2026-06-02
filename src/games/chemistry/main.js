@@ -31,6 +31,7 @@ import {
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
 import { LEVELS } from "./levelsConfig.js";
+import { renderChemistryHud } from "./chemistryUi.js"
 
 const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
 
@@ -133,7 +134,7 @@ function renderHudIfNeeded(force = false) {
   if (!force && key === lastHudKey) return;
   lastHudKey = key;
 
-  renderGameUi(gameUi, state, {
+  renderGameUi(gameUi, state, (el) => renderChemistryHud(el, state, {
     onSelectAtom: (type) => {
       state.session.selectedSpawnType = type;
       renderHudIfNeeded(true);
@@ -143,7 +144,7 @@ function renderHudIfNeeded(force = false) {
         state.session.inputMode === "drag" ? "spawn" : "drag";
       renderHudIfNeeded(true);
     },
-  });
+  }));
 }
 
 // ─── Canvas / world helpers ──────────────────────────────────────────────────

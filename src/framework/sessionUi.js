@@ -52,19 +52,22 @@ export function renderOverlay(overlay, sidebar, state, actions) {
   if (s.phase === "simulation") {
     overlay.innerHTML = "";
     if (sidebar) {
+      // Score-based game (recycling) vs goal-based (chemistry)
+      const isScoreBased = typeof state.score === 'number';
+  
+      const goalContent = isScoreBased
+        ? `<p class="score-display">Score: <strong>${state.score}</strong> / ${state.sortedTotal}</p>`
+        : (s.goal.targets || []).map(t =>
+            `<p>${t.molecule ?? t.binId}: ${
+              s.createdMoleculeCounts?.[t.molecule] ??
+              state.correctDrops?.[t.binId] ?? 0
+            }/${t.targetCount}</p>`
+          ).join("");
+  
       sidebar.innerHTML = `
         <div class="panel panel--sidebar">
-          <h3>Goal</h3>
-          ${(s.goal.targets || [])
-            .map(
-              (t) =>
-                `<p>${t.molecule ?? t.binId}: ${
-                  s.createdMoleculeCounts?.[t.molecule] ??
-                  state.correctDrops?.[t.binId] ??
-                  0
-                }/${t.targetCount}</p>`
-            )
-            .join("")}
+          <h3>${isScoreBased ? 'Score' : 'Goal'}</h3>
+          ${goalContent}
           <div class="sim-actions">
             <button id="restartSimBtn" type="button" title="Restart">↻</button>
             <button id="finishSimBtn" type="button">Finish &amp; Continue</button>
@@ -76,7 +79,6 @@ export function renderOverlay(overlay, sidebar, state, actions) {
     }
     return;
   }
-
   if (sidebar) sidebar.innerHTML = "";
 
   if (s.phase === "quiz") {

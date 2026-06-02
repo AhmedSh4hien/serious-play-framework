@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { state } from './state.js';
 import { LEVELS } from './levelsConfig.js';
 import { resetWorld } from './gameplay.js';
+import { startTimer, checkTimedOut, getRemainingSeconds } from './recycling.js';
 import { createTelemetry } from '../../framework/telemetry.js';
 import {
   createSessionUi,
@@ -13,23 +14,26 @@ import {
   goToNextLevel,
   resetSessionData,
 } from '../../framework/sessionUi.js';
+import { createGameUi, renderGameUi } from '../../ui/gameUi.js';
+import { renderRecyclingHud } from './recyclingUi.js';
 import '../../style.css';
 
 const telemetry = createTelemetry({ getState: () => state });
 
-const sidebar = document.getElementById('sidebar');
-const { overlay } = createSessionUi(
-  document.getElementById('overlay-root'),
-  sidebar,
-  LEVELS
-);
-
 let app;
+let timerText = null;
 let lastOverlayKey = '';
+let sidebar;
+let gameUi;
+let overlay;
 
 function getOverlayKey() {
   const s = state.session;
-  return [s.phase, s.quiz?.currentIndex ?? 0, s.quiz?.score ?? 0].join('|');
+  return [s.phase, s.quiz?.currentIndex ?? 0, s.quiz?.score ?? 0, state.score].join('|');
+}
+
+function renderHudIfNeeded() {
+  renderGameUi(gameUi, state, (el) => renderRecyclingHud(el, state));
 }
 
 function renderOverlayIfNeeded(force = false) {
@@ -40,12 +44,17 @@ function renderOverlayIfNeeded(force = false) {
   renderOverlay(overlay, sidebar, state, {
     onStart: () => {
       startSimulation(state, telemetry);
+      const levelId = LEVELS[state.session.currentLevelIndex]?.id ?? 'recycling-1';
+      startTimer(state, levelId);
       resetWorld(app, state, telemetry);
+      initTimerText();
       renderOverlayIfNeeded(true);
+      renderHudIfNeeded();
     },
     onFinishSimulation: () => {
       goToQuiz(state, telemetry);
       renderOverlayIfNeeded(true);
+      renderHudIfNeeded();
     },
     onAnswer: (selectedIndex) => {
       answerQuestion(state, telemetry, selectedIndex);
@@ -53,19 +62,49 @@ function renderOverlayIfNeeded(force = false) {
         telemetry.flushToSupabase();
       }
       renderOverlayIfNeeded(true);
+      renderHudIfNeeded();
     },
     onRestart: () => {
       restartSession(state, telemetry);
       telemetry.flushToSupabase();
       resetWorld(app, state, telemetry);
       renderOverlayIfNeeded(true);
+      renderHudIfNeeded();
     },
     onNextLevel: () => {
       goToNextLevel(state, telemetry);
       loadLevelIntoState(state.session.currentLevelIndex);
       resetWorld(app, state, telemetry);
       renderOverlayIfNeeded(true);
+      renderHudIfNeeded();
     },
+  });
+}
+
+function initTimerText() {
+  if (timerText) app.stage.removeChild(timerText);
+  timerText = new PIXI.Text('', {
+    fontSize: 20,
+    fontWeight: 'bold',
+    fill: 0xffffff,
+  });
+  timerText.x = 16;
+  timerText.y = 16;
+  app.stage.addChild(timerText);
+}
+
+function updateTimerText() {
+  if (!timerText || state.session.phase !== 'simulation') return;
+  const secs = Math.ceil(getRemainingSeconds(state));
+  timerText.text = `⏱ ${secs}s`;
+  timerText.style.fill = secs <= 10 ? 0xff4444 : 0xffffff;
+}
+
+function watchGoal() {
+  if (state.session.phase !== 'simulation') return;
+  checkTimedOut(state, telemetry, () => {
+    goToQuiz(state, telemetry);
+    renderOverlayIfNeeded(true);
   });
 }
 
@@ -81,13 +120,10 @@ function loadLevelIntoState(index) {
   s.quiz.score = 0;
   s.quiz.answers = [];
   state.correctDrops = {};
-}
-
-function watchGoal() {
-  if (state.session.phase === 'simulation' && state.session.goal.completed) {
-    goToQuiz(state, telemetry);
-    renderOverlayIfNeeded(true);
-  }
+  state.score = 0;
+  state.sortedTotal = 0;
+  state.session.timerStartedAt = null;
+  state.session.timedOut = false;
 }
 
 function bootSession() {
@@ -95,6 +131,7 @@ function bootSession() {
   loadLevelIntoState(0);
   resetWorld(app, state, telemetry);
   renderOverlayIfNeeded(true);
+  renderHudIfNeeded();
 }
 
 async function initGame() {
@@ -106,6 +143,15 @@ async function initGame() {
 
   const gameRoot = document.getElementById('game-root');
   if (!gameRoot) throw new Error('Missing #game-root');
+
+  // DOM is ready — safe to query elements
+  sidebar = document.getElementById('sidebar');
+  gameUi = createGameUi(document.getElementById('hud-root'));
+  ({ overlay } = createSessionUi(
+    document.getElementById('overlay-root'),
+    sidebar,
+    LEVELS
+  ));
 
   app = new PIXI.Application();
   await app.init({
@@ -120,11 +166,17 @@ async function initGame() {
   app.stage.eventMode = 'static';
   app.stage.hitArea = app.screen;
 
+  state._onUiChange = () => {
+    renderOverlayIfNeeded(true);
+    renderHudIfNeeded();
+  };
+
   app.ticker.add(() => {
     watchGoal();
+    updateTimerText();
   });
 
-  bootSession();
+  app.ticker.addOnce(() => bootSession());
 }
 
 initGame().catch((e) => {
