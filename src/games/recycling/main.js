@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { state } from './state.js';
 import { LEVELS } from './levelsConfig.js';
-import { resetWorld } from './gameplay.js';
+import { preloadAssets, resetWorld } from './gameplay.js';
 import { startTimer, checkTimedOut, getRemainingSeconds } from './recycling.js';
 import { createTelemetry } from '../../framework/telemetry.js';
 import {
@@ -176,7 +176,10 @@ async function initGame() {
     updateTimerText();
   });
 
-  app.ticker.addOnce(() => bootSession());
+  app.ticker.addOnce(async () => {
+    await preloadAssets();
+    bootSession();
+  });
 }
 
 initGame().catch((e) => {

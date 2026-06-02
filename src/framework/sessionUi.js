@@ -106,24 +106,29 @@ export function renderOverlay(overlay, sidebar, state, actions) {
   if (s.phase === "feedback") {
     const hasNextLevel = s.currentLevelIndex < _levels.length - 1;
     const level = _levels[s.currentLevelIndex];
-
+    const isScoreBased = state.isScoreBased === true;
+  
+    const goalProgress = isScoreBased
+      ? `<p>Components sorted correctly: <strong>${state.score ?? 0}</strong> / ${state.sortedTotal ?? 0}</p>`
+      : (s.goal.targets || []).map(t =>
+          `<p>${t.molecule ?? t.binId}: ${
+            s.createdMoleculeCounts?.[t.molecule] ??
+            state.correctDrops?.[t.binId] ?? 0
+          }/${t.targetCount}</p>`
+        ).join("");
+  
+    const simStats = !isScoreBased ? `
+      <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
+      <p>Valid bonds formed: ${s.stats.validBonds}</p>
+    ` : '';
+  
     overlay.innerHTML = `
       <div class="panel">
         <h2>Feedback</h2>
         <p>Quiz score: ${s.quiz.score}/${s.quiz.questions.length}</p>
-        <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
-        <p>Valid bonds formed: ${s.stats.validBonds}</p>
+        ${simStats}
         <div class="goal-progress">
-          ${(s.goal.targets || [])
-            .map(
-              (t) =>
-                `<p>${t.molecule ?? t.binId}: ${
-                  s.createdMoleculeCounts?.[t.molecule] ??
-                  state.correctDrops?.[t.binId] ??
-                  0
-                }/${t.targetCount}</p>`
-            )
-            .join("")}
+          ${goalProgress}
         </div>
         ${level?.funFact ? `
           <div class="fun-fact">

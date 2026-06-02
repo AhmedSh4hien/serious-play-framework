@@ -5,14 +5,16 @@ const initialLevel = LEVELS[0];
 
 export const state = {
   ...createFrameworkState(),
-
   bins: [],
   activeComponent: null,
   componentQueue: [],
+  components: [],
   score: 0,
   sortedTotal: 0,
   correctDrops: {},
   _onUiChange: null,
+  _spawnTimer: null,
+  isScoreBased: true,   
 };
 
 const s = state.session;

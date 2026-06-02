@@ -10,7 +10,28 @@ export const BIN_DEFS = [
   { id: 'hazardous', label: 'Hazardous',       color: 0x9b59b6 },
 ];
 
-const SPAWN_INTERVAL_MS = 2500; // new component every 2.5s
+const SPAWN_INTERVAL_MS = 2500;
+const COMPONENT_IDS = ['battery','screen','pcb','casing','camera','speaker','sim','battery_ic'];
+const TEXTURES = {};
+
+export async function preloadAssets() {
+  await Promise.all(
+    COMPONENT_IDS.map(id =>
+      new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          TEXTURES[id] = PIXI.Texture.from(img);
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn(`Asset not found for "${id}", using fallback.`);
+          resolve();
+        };
+        img.src = `${import.meta.env.BASE_URL}assets/recycling/${id}.png`;
+      })
+    )
+  );
+}
 
 export function initBins(app, state) {
   state.bins.forEach(b => app.stage.removeChild(b.container));
@@ -18,9 +39,7 @@ export function initBins(app, state) {
 
   const W = app.screen.width;
   const H = app.screen.height;
-  const binW = 110;
-  const binH = 90;
-  const padding = 12;
+  const binW = 110, binH = 90, padding = 12;
   const totalW = BIN_DEFS.length * (binW + padding) - padding;
   const startX = (W - totalW) / 2;
   const binY = H - binH - 16;
@@ -31,15 +50,17 @@ export function initBins(app, state) {
     container.y = binY;
 
     const bg = new PIXI.Graphics();
-    bg.beginFill(def.color, 0.25);
-    bg.lineStyle(2, def.color, 1);
-    bg.drawRoundedRect(0, 0, binW, binH, 8);
-    bg.endFill();
+    bg.roundRect(0, 0, binW, binH, 8);
+    bg.fill({ color: def.color, alpha: 0.25 });
+    bg.stroke({ color: def.color, alpha: 1, width: 2 });
     container.addChild(bg);
 
-    const label = new PIXI.Text(def.label, {
-      fontSize: 11, fill: 0xffffff, align: 'center',
-      wordWrap: true, wordWrapWidth: binW - 8,
+    const label = new PIXI.Text({
+      text: def.label,
+      style: {
+        fontSize: 11, fill: 0xffffff, align: 'center',
+        wordWrap: true, wordWrapWidth: binW - 8,
+      }
     });
     label.anchor.set(0.5, 0.5);
     label.x = binW / 2;
@@ -53,7 +74,6 @@ export function initBins(app, state) {
 }
 
 export function initComponents(app, state, telemetry) {
-  // Clear all active components
   for (const c of state.components) app.stage.removeChild(c.container);
   state.components = [];
 
@@ -63,7 +83,6 @@ export function initComponents(app, state, telemetry) {
   }
 
   const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
-  // Infinite queue — repeat the level components shuffled
   state.componentQueue = shuffle([
     ...level.components, ...level.components, ...level.components,
     ...level.components, ...level.components,
@@ -71,7 +90,6 @@ export function initComponents(app, state, telemetry) {
   state.score = 0;
   state.sortedTotal = 0;
 
-  // Spawn first one immediately, then on interval
   spawnNext(app, state, telemetry);
   state._spawnTimer = setInterval(() => {
     if (state.session.phase !== 'simulation') {
@@ -82,12 +100,9 @@ export function initComponents(app, state, telemetry) {
   }, SPAWN_INTERVAL_MS);
 }
 
-// ─── Spawn a single component into the pile ───────────────────────────────────
-
 function spawnNext(app, state, telemetry) {
   if (state.session.phase !== 'simulation') return;
   if (state.componentQueue.length === 0) {
-    // refill queue
     const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
     state.componentQueue = shuffle([...level.components, ...level.components]);
   }
@@ -95,33 +110,45 @@ function spawnNext(app, state, telemetry) {
   const def = state.componentQueue.shift();
   const W = app.screen.width;
   const H = app.screen.height;
-  const binAreaTop = H - 106; // above bins
+  const binAreaTop = H - 106;
 
-  // Spread components randomly in the upper 60% of the screen
   const originX = 80 + Math.random() * (W - 160);
   const originY = 60 + Math.random() * (binAreaTop * 0.6);
 
   const container = new PIXI.Container();
   container.x = originX;
-  container.y = -60; // start above screen
-  container.interactive = true;
+  container.y = -60;
+  container.eventMode = 'static';
   container.cursor = 'grab';
 
-  const box = new PIXI.Graphics();
-  box.beginFill(def.color, 0.9);
-  box.lineStyle(2, 0xffffff, 0.4);
-  box.drawRoundedRect(-55, -28, 110, 56, 10);
-  box.endFill();
-  container.addChild(box);
+  const texture = TEXTURES[def.id];
+  if (texture) {
+    const sprite = new PIXI.Sprite(texture);
+    sprite.anchor.set(0.5);
+    sprite.width = 80;
+    sprite.height = 80;
+    container.addChild(sprite);
+  } else {
+    const box = new PIXI.Graphics();
+    box.roundRect(-55, -28, 110, 56, 10);
+    box.fill({ color: def.color, alpha: 0.9 });
+    box.stroke({ color: 0xffffff, alpha: 0.4, width: 2 });
+    container.addChild(box);
+  }
 
-  const label = new PIXI.Text(def.label, {
-    fontSize: 12, fontWeight: 'bold', fill: 0xffffff,
-    align: 'center', wordWrap: true, wordWrapWidth: 100,
+  const label = new PIXI.Text({
+    text: def.label,
+    style: {
+      fontSize: 11, fontWeight: 'bold', fill: 0xffffff,
+      align: 'center', wordWrap: true, wordWrapWidth: 100,
+      dropShadow: { distance: 2, alpha: 0.8 },
+    }
   });
-  label.anchor.set(0.5, 0.5);
+  label.anchor.set(0.5, 0);
+  label.y = 44;
   container.addChild(label);
 
-  // Animate drop-in
+  // Drop-in animation
   const targetY = originY;
   const dropSpeed = 18;
   const dropTicker = app.ticker.add(() => {
@@ -132,7 +159,6 @@ function spawnNext(app, state, telemetry) {
     }
   });
 
-  // Drag
   let dragging = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
@@ -141,7 +167,7 @@ function spawnNext(app, state, telemetry) {
     if (state.session.phase !== 'simulation') return;
     dragging = true;
     container.cursor = 'grabbing';
-    const pos = e.data.getLocalPosition(app.stage);
+    const pos = e.getLocalPosition(app.stage);
     dragOffsetX = pos.x - container.x;
     dragOffsetY = pos.y - container.y;
     app.stage.setChildIndex(container, app.stage.children.length - 1);
@@ -153,7 +179,7 @@ function spawnNext(app, state, telemetry) {
 
   app.stage.on('pointermove', (e) => {
     if (!dragging) return;
-    const pos = e.data.getLocalPosition(app.stage);
+    const pos = e.getLocalPosition(app.stage);
     container.x = pos.x - dragOffsetX;
     container.y = pos.y - dragOffsetY;
   });
@@ -164,9 +190,7 @@ function spawnNext(app, state, telemetry) {
     container.cursor = 'grab';
 
     const hit = getHitBin(state, container.x, container.y);
-
     if (!hit) {
-      // Snap back to pile position
       container.x = originX;
       container.y = originY;
       return;
@@ -176,14 +200,12 @@ function spawnNext(app, state, telemetry) {
     state.sortedTotal++;
 
     if (correct) {
-      // Remove from screen and pile
       app.stage.removeChild(container);
       state.components = state.components.filter(c => c.container !== container);
       state.score++;
       flashBin(hit, 0x00ff00);
       showPopup(app, hit.x + hit.w / 2, hit.y, '+1', 0x00ff88);
     } else {
-      // Snap back — stays in the pile
       container.x = originX;
       container.y = originY;
       flashBin(hit, 0xff3333);
@@ -206,8 +228,6 @@ function spawnNext(app, state, telemetry) {
   state.components.push({ id: def.id, binId: def.binId, container, originX, originY });
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function getHitBin(state, x, y) {
   for (const bin of state.bins) {
     if (x >= bin.x && x <= bin.x + bin.w &&
@@ -222,7 +242,7 @@ function flashBin(bin, color) {
 }
 
 function showPopup(app, x, y, text, color) {
-  const t = new PIXI.Text(text, { fontSize: 22, fontWeight: 'bold', fill: color });
+  const t = new PIXI.Text({ text, style: { fontSize: 22, fontWeight: 'bold', fill: color } });
   t.anchor.set(0.5);
   t.x = x;
   t.y = y;
