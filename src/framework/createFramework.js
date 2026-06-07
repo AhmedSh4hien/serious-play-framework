@@ -37,6 +37,10 @@ export function createFramework({
     logEvent: (name, data) => telemetry.event(name, data),
     flushTelemetry: () => telemetry.flushToSupabase(),
     downloadTelemetry: () => telemetry.downloadJson(),
+    finishSimulation: () => {
+      goToQuiz(state, telemetry);
+      renderOverlay(overlay, sidebar, state, actions);
+    },
   };
 
   const { overlay } = createSessionUi(container, sidebar, levels, adapter);
