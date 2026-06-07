@@ -113,7 +113,6 @@ export function createTelemetry({ getState, onFlush }) {
     clearInterval(sampleInterval);
   });
 
-  event("session_start");
 
   return {
     event,

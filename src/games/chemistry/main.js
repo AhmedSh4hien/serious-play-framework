@@ -1,5 +1,4 @@
 // ─── Renderer ────────────────────────────────────────────────────────────────
-// Set USE_PIXI to true to use PixiJS (WebGL), false for Canvas 2D
 const USE_PIXI = false;
 
 import * as CanvasRenderer from "../../renderers/render.js";
@@ -8,17 +7,7 @@ import * as PixiRenderer from "../../renderers/renderPixi.js";
 import { state } from "./state.js";
 import { canBond, getPairMolecule } from "./chemistry.js";
 import { matterProvider } from "../../physics/matterProvider.js";
-import { createTelemetry } from "../../framework/telemetry.js";
-import {
-  createSessionUi,
-  renderOverlay,
-  startSimulation,
-  goToQuiz,
-  answerQuestion,
-  restartSession,
-  goToNextLevel,
-  resetSessionData,
-} from "../../framework/sessionUi.js";
+import { createFramework } from "../../framework/createFramework.js";
 import { createGameUi, renderGameUi } from "../../ui/gameUi.js";
 import {
   initAtoms,
@@ -31,43 +20,29 @@ import {
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
 import { LEVELS } from "./levelsConfig.js";
-import { renderChemistryHud } from "./chemistryUi.js"
+import { renderChemistryHud } from "./chemistryUi.js";
 
 const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
 
-// ─── Canvas setup ────────────────────────────────────────────────────────────
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
 const canvas = document.getElementById("gameCanvas");
+const debugEl = document.getElementById("debug-hud");
+const sidebar = document.getElementById("sidebar");
+const container = document.getElementById("overlay-root");
 let ctx = USE_PIXI ? null : canvas.getContext("2d");
-
 if (USE_PIXI) await renderer.initPixi(canvas);
 
-const telemetry = createTelemetry({ getState: () => state });
-const debugEl = document.getElementById("debug-hud");
-
+// ─── Game UI (chemistry HUD) ──────────────────────────────────────────────────
 const gameUi = createGameUi(document.getElementById("hud-root"));
+
 let physics;
-const sidebar = document.getElementById("sidebar");
-const { overlay } = createSessionUi(
-  document.getElementById("overlay-root"),
-  sidebar,
-  LEVELS
-);
-
-let lastOverlayKey = "";
 let lastHudKey = "";
-
-// ─── Key helpers ─────────────────────────────────────────────────────────────
-
-function getOverlayKey() {
-  const s = state.session;
-  return [s.phase, s.quiz?.currentIndex ?? 0, s.quiz?.score ?? 0].join("|");
-}
 
 function getHudKey() {
   const s = state.session;
   const targets = s.goal?.targets || [];
   const progressKey = targets
-    .map((t) => `${t.molecule}:${s.createdMoleculeCounts?.[t.molecule] ?? 0}`)
+    .map((t) => `${t.molecule}:${s.createdItemCounts?.[t.molecule] ?? 0}`)
     .join("|");
   return [
     s.phase,
@@ -80,78 +55,30 @@ function getHudKey() {
   ].join("|");
 }
 
-// ─── Render helpers ──────────────────────────────────────────────────────────
-
-function renderOverlayIfNeeded(force = false) {
-  const key = getOverlayKey();
-  if (!force && key === lastOverlayKey) return;
-  lastOverlayKey = key;
-
-  renderOverlay(overlay, sidebar, state, {
-    onStart: () => {
-      startSimulation(state, telemetry);
-      renderOverlayIfNeeded(true);
-      renderHudIfNeeded(true);
-      requestAnimationFrame(() => {
-        resizeCanvas();
-        resetWorldFromState();
-        renderHudIfNeeded(true);
-      });
-    },
-    onFinishSimulation: () => {
-      goToQuiz(state, telemetry);
-      renderOverlayIfNeeded(true);
-      renderHudIfNeeded(true);
-    },
-    onAnswer: (selectedIndex) => {
-      answerQuestion(state, telemetry, selectedIndex);
-      if (state.session.phase === "feedback") {
-        telemetry.flushToSupabase();
-      }
-      renderOverlayIfNeeded(true);
-      renderHudIfNeeded(true);
-    },
-    onRestart: () => {
-      restartSession(state, telemetry);
-      telemetry.flushToSupabase();
-      resizeCanvas();
-      resetWorldFromState();
-      renderOverlayIfNeeded(true);
-      renderHudIfNeeded(true);
-    },
-    onNextLevel: () => {
-      goToNextLevel(state, telemetry);
-      resizeCanvas();
-      resetWorldFromState();
-      renderOverlayIfNeeded(true);
-      renderHudIfNeeded(true);
-    },
-  });
-}
-
 function renderHudIfNeeded(force = false) {
   const key = getHudKey();
   if (!force && key === lastHudKey) return;
   lastHudKey = key;
 
-  renderGameUi(gameUi, state, (el) => renderChemistryHud(el, state, {
-    onSelectAtom: (type) => {
-      state.session.selectedSpawnType = type;
-      renderHudIfNeeded(true);
-    },
-    onToggleMode: () => {
-      state.session.inputMode =
-        state.session.inputMode === "drag" ? "spawn" : "drag";
-      renderHudIfNeeded(true);
-    },
-  }));
+  renderGameUi(gameUi, state, (el) =>
+    renderChemistryHud(el, state, {
+      onSelectAtom: (type) => {
+        state.session.selectedSpawnType = type;
+        renderHudIfNeeded(true);
+      },
+      onToggleMode: () => {
+        state.session.inputMode =
+          state.session.inputMode === "drag" ? "spawn" : "drag";
+        renderHudIfNeeded(true);
+      },
+    })
+  );
 }
 
-// ─── Canvas / world helpers ──────────────────────────────────────────────────
-
+// ─── Canvas / world helpers ───────────────────────────────────────────────────
 function resizeCanvas() {
-  const container = canvas.parentElement;
-  const rect = container.getBoundingClientRect();
+  const cont = canvas.parentElement;
+  const rect = cont.getBoundingClientRect();
 
   if (USE_PIXI) {
     canvas.style.width = `${rect.width}px`;
@@ -166,7 +93,6 @@ function resizeCanvas() {
     ctx.scale(dpr, dpr);
   }
 
-  // Guard: physics doesn't exist yet on the first resizeCanvas() call
   if (physics) {
     matterProvider.handleResizePhysics(physics, {
       width: rect.width,
@@ -184,6 +110,7 @@ function resetWorldFromState() {
   state.bonds.length = 0;
   state.atomById.clear();
   state.nextAtomId = 0;
+  // physics-level molecule counts (used by debug HUD, separate from session)
   state.moleculeCounts = { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 };
 
   initAtoms(state, canvas);
@@ -191,104 +118,141 @@ function resetWorldFromState() {
   matterProvider.ensureBondConstraints(physics, state);
 }
 
-function bootSession() {
-  resetSessionData(state);
-  resetWorldFromState();
-  renderOverlayIfNeeded(true);
-  renderHudIfNeeded(true);
-}
+// ─── Chemistry adapter ────────────────────────────────────────────────────────
+const adapter = {
+  // called once on boot -- set up physics, input, collision wiring
+  initGame(state, api) {
+    resizeCanvas();
+    physics = matterProvider.createPhysics(canvas);
 
-// ─── Loop ────────────────────────────────────────────────────────────────────
-
-function updateFps(t) {
-  state.framesThisSecond++;
-  if (t - state.lastFpsUpdate >= 1000) {
-    state.fps = state.framesThisSecond;
-    state.framesThisSecond = 0;
-    state.lastFpsUpdate = t;
-  }
-}
-
-function loop(t) {
-  const dt = (t - state.lastTime) * 0.1;
-  state.lastTime = t;
-
-  updateFps(t);
-
-  decayIntermediateBonds({ now: t, state, physics });
-
-  finalizeWaterMolecules({
-    state,
-    onUiChange: () => {
-      renderHudIfNeeded(true);
-      renderOverlayIfNeeded(true);
-    },
-  });
-
-  if (debugEl) {
-    debugEl.innerHTML =
-      `FPS: ${state.fps}<br>` +
-      `Atoms: ${state.atoms.length}<br>` +
-      `Mode: ${state.session.inputMode}<br>` +
-      `H2: ${state.moleculeCounts.H2} | O2: ${state.moleculeCounts.O2} | Cl2: ${state.moleculeCounts.Cl2}`;
-  }
-
-  matterProvider.convertToPhysical(physics, state);
-  matterProvider.ensureBondConstraints(physics, state);
-  applyMouseForce({ state, physics });
-  matterProvider.updatePhysical(physics, state);
-  renderer.draw(canvas, ctx, state);
-
-  requestAnimationFrame(loop);
-}
-
-// ─── Boot ────────────────────────────────────────────────────────────────────
-
-window.addEventListener("resize", resizeCanvas);
-
-// 1. Size the canvas correctly first
-resizeCanvas();
-physics = matterProvider.createPhysics(canvas);
-
-// 3. Wire up collision bonding
-matterProvider.installCollisionBonding(
-  physics,
-  state,
-  { canBond, getPairMolecule },
-  (a, b) => {
-    onBond({
-      a,
-      b,
-      state,
+    matterProvider.installCollisionBonding(
       physics,
-      telemetry,
-      onUiChange: () => {
-        renderHudIfNeeded(true);
-        renderOverlayIfNeeded(true);
-      },
-    });
-  }
-);
-
-// 4. Wire up input
-installInput(canvas, state, {
-  onSpawn: (x, y) => {
-    if (state.session.phase !== "simulation") return;
-    spawnAtomAt({
-      x,
-      y,
       state,
-      telemetry,
-      onUiChange: () => {
-        renderHudIfNeeded(true);
+      { canBond, getPairMolecule },
+      (a, b) => {
+        onBond({
+          a, b, state, physics,
+          telemetry: { event: api.logEvent },
+          onUiChange: () => {
+            renderHudIfNeeded(true);
+          },
+        });
+      }
+    );
+
+    installInput(canvas, state, {
+      onSpawn: (x, y) => {
+        if (state.session.phase !== "simulation") return;
+        spawnAtomAt({
+          x, y, state,
+          telemetry: { event: api.logEvent },
+          onUiChange: () => renderHudIfNeeded(true),
+        });
       },
+      onPrimaryDown: () => {},
     });
+
+    window.addEventListener("resize", resizeCanvas);
   },
-  onPrimaryDown: () => {
-    // drag is handled by applyMouseForce reading state.input directly
+
+  // called on every restart and level change
+  resetGame(state, level) {
+    // chemistry-specific session fields
+    state.session.inventory = { H: 0, O: 0, Cl: 0, ...level.inventory };
+    state.session.allowedAtomTypes = [...(level.allowedAtomTypes ?? [])];
+    state.session.selectedSpawnType = level.allowedAtomTypes?.[0] ?? null;
+    state.session.inputMode = "spawn";
+
+    // createdItemCounts keyed by molecule name for this level
+    state.session.createdItemCounts = Object.fromEntries(
+      (level.goal.targets ?? []).map((t) => [t.molecule, 0])
+    );
+
+    // chemistry-specific stats
+    state.session.stats = {
+      atomsSpawned: 0,
+      validBonds: 0,
+      invalidBondAttempts: 0,
+      targetMoleculesFormed: 0,
+    };
+
+    resizeCanvas();
+    resetWorldFromState();
+    renderHudIfNeeded(true);
+  },
+
+  // called every frame during simulation
+  updateGame(dt, state, api) {
+    const t = performance.now();
+
+    decayIntermediateBonds({ now: t, state, physics });
+
+    finalizeWaterMolecules({
+      state,
+      onUiChange: () => renderHudIfNeeded(true),
+    });
+
+    if (debugEl) {
+      debugEl.innerHTML =
+        `FPS: ${state.fps}<br>` +
+        `Atoms: ${state.atoms.length}<br>` +
+        `Mode: ${state.session.inputMode}<br>` +
+        `H2: ${state.moleculeCounts.H2} | O2: ${state.moleculeCounts.O2} | Cl2: ${state.moleculeCounts.Cl2}`;
+    }
+
+    matterProvider.convertToPhysical(physics, state);
+    matterProvider.ensureBondConstraints(physics, state);
+    applyMouseForce({ state, physics });
+    matterProvider.updatePhysical(physics, state);
+    renderer.draw(canvas, ctx, state);
+  },
+
+  // sidebar during simulation -- chemistry goal progress
+  renderSidebarContent(state) {
+    const s = state.session;
+    const rows = (s.goal.targets || [])
+      .map(
+        (t) =>
+          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${t.targetCount}</p>`
+      )
+      .join("");
+
+    return `
+      <h3>Goal</h3>
+      ${rows}
+      <hr/>
+      <p>Atoms spawned: ${s.stats.atomsSpawned ?? 0}</p>
+    `;
+  },
+
+  // feedback panel stats
+  renderFeedbackStats(state) {
+    const s = state.session;
+    const rows = (s.goal.targets || [])
+      .map(
+        (t) =>
+          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${t.targetCount}</p>`
+      )
+      .join("");
+
+    return `
+      <div class="goal-progress">${rows}</div>
+      <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
+      <p>Valid bonds formed: ${s.stats.validBonds}</p>
+    `;
+  },
+};
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+const fw = createFramework({
+  levels: LEVELS,
+  adapter,
+  container,
+  sidebar,
+  state,   // ← pass it in so framework uses the same object
+  onTelemetryFlush: ({ success, eventCount }) => {
+    if (success) console.info(`[chemistry] telemetry flushed: ${eventCount} events`);
   },
 });
 
-// 5. Boot
-bootSession();
-requestAnimationFrame(loop);
+fw.start();

@@ -156,8 +156,8 @@ export function finalizeWaterMolecules({ state, onUiChange }) {
 
       state.moleculeCounts.H2O = (state.moleculeCounts.H2O || 0) + 1;
       if (state.session.isTrackingProgress) {
-        state.session.createdMoleculeCounts.H2O =
-          (state.session.createdMoleculeCounts.H2O || 0) + 1;
+        state.session.createdItemCounts.H2O =
+          (state.session.createdItemCounts.H2O || 0) + 1;
       }
       changed = true;
     }
@@ -184,8 +184,8 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   state.moleculeCounts[molecule] = (state.moleculeCounts[molecule] || 0) + 1;
 
   if (state.session.isTrackingProgress) {
-    state.session.createdMoleculeCounts[molecule] =
-      (state.session.createdMoleculeCounts[molecule] || 0) + 1;
+    state.session.createdItemCounts[molecule] =
+      (state.session.createdItemCounts[molecule] || 0) + 1;
   }
 
   const bond = {
@@ -214,12 +214,12 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
   const allTargetsCompleted =
     targets.length > 0 &&
     targets.every((t) => {
-      const current = state.session.createdMoleculeCounts[t.molecule] || 0;
+      const current = state.session.createdItemCounts[t.molecule] || 0;
       return current >= t.targetCount;
     });
 
   state.session.stats.targetMoleculesFormed = targets.filter((t) => {
-    const current = state.session.createdMoleculeCounts[t.molecule] || 0;
+    const current = state.session.createdItemCounts[t.molecule] || 0;
     return current >= t.targetCount;
   }).length;
 
@@ -234,7 +234,7 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
       targets: targets.map((t) => ({
         molecule: t.molecule,
         targetCount: t.targetCount,
-        actualCount: state.session.createdMoleculeCounts[t.molecule] || 0,
+        actualCount: state.session.createdItemCounts[t.molecule] || 0,
       })),
     });
   }

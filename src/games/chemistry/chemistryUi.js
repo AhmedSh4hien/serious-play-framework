@@ -5,7 +5,7 @@ export function renderChemistryHud(el, state, actions) {
   const isMulti = targets.length > 1;
 
   const progressRows = targets.map((t) => {
-    const done = s.createdMoleculeCounts[t.molecule] || 0;
+    const done = s.createdItemCounts[t.molecule] || 0;
     const total = t.targetCount;
     const pct = Math.min(100, Math.round((done / total) * 100));
     const complete = done >= total;

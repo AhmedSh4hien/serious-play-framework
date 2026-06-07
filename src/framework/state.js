@@ -18,31 +18,29 @@ export function createFrameworkState() {
       topic: null,
       title: null,
       prompt: null,
+      phaseStartedAtMs: null,
+
       goal: {
         targets: [],
         completed: false,
         completedAtMs: null,
       },
-      inventory: {},
-      allowedAtomTypes: [],
-      selectedSpawnType: null,
+
       startedAtMs: null,
       simStartedAtMs: null,
       simEndedAtMs: null,
       isTrackingProgress: false,
-      createdMoleculeCounts: {},
+
+      createdItemCounts: {},
+
       quiz: {
         currentIndex: 0,
         answers: [],
         score: 0,
         questions: [],
       },
-      stats: {
-        atomsSpawned: 0,
-        validBonds: 0,
-        invalidBondAttempts: 0,
-        targetMoleculesFormed: 0,
-      },
+
+      stats: {},
     },
   };
 }

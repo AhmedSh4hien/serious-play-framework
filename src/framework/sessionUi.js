@@ -1,4 +1,5 @@
 let _levels = [];
+let _adapter = null;
 
 function transitionPhase(state, telemetry, nextPhase) {
   const now = performance.now();
@@ -19,9 +20,12 @@ function transitionPhase(state, telemetry, nextPhase) {
 export function createSessionUi(
   container = document.body,
   sidebar = null,
-  levels = []
+  levels = [],
+  adapter = null
 ) {
   _levels = levels;
+  _adapter = adapter;
+
   const el = document.createElement("div");
   el.id = "sessionOverlay";
   container.appendChild(el);
@@ -32,16 +36,17 @@ export function renderOverlay(overlay, sidebar, state, actions) {
   const s = state.session;
   overlay.className = `phase-${s.phase}`;
 
-  const goalText = (s.goal.targets || [])
-    .map((t) => `${t.targetCount} ${t.molecule ?? t.binId}`)
-    .join(", ");
-
+  // ── intro ──────────────────────────────────────────────────────────
   if (s.phase === "intro") {
+    const goalText = (s.goal.targets || [])
+      .map((t) => `${t.targetCount} ${t.molecule ?? t.binId}`)
+      .join(", ");
+
     overlay.innerHTML = `
       <div class="panel">
         <h2>${s.title}</h2>
         <p>${s.prompt}</p>
-        <p><strong>Goal:</strong> Sort ${goalText}.</p>
+        <p><strong>Goal:</strong> ${goalText}</p>
         <button id="startSessionBtn" type="button">Start</button>
       </div>
     `;
@@ -49,38 +54,15 @@ export function renderOverlay(overlay, sidebar, state, actions) {
     return;
   }
 
+  // ── simulation ─────────────────────────────────────────────────────
   if (s.phase === "simulation") {
     overlay.innerHTML = "";
-    if (sidebar) {
-      // Score-based game (recycling) vs goal-based (chemistry)
-      const isScoreBased = typeof state.score === 'number';
-  
-      const goalContent = isScoreBased
-        ? `<p class="score-display">Score: <strong>${state.score}</strong> / ${state.sortedTotal}</p>`
-        : (s.goal.targets || []).map(t =>
-            `<p>${t.molecule ?? t.binId}: ${
-              s.createdMoleculeCounts?.[t.molecule] ??
-              state.correctDrops?.[t.binId] ?? 0
-            }/${t.targetCount}</p>`
-          ).join("");
-  
-      sidebar.innerHTML = `
-        <div class="panel panel--sidebar">
-          <h3>${isScoreBased ? 'Score' : 'Goal'}</h3>
-          ${goalContent}
-          <div class="sim-actions">
-            <button id="restartSimBtn" type="button" title="Restart">↻</button>
-            <button id="finishSimBtn" type="button">Finish &amp; Continue</button>
-          </div>
-        </div>
-      `;
-      sidebar.querySelector("#finishSimBtn").onclick = actions.onFinishSimulation;
-      sidebar.querySelector("#restartSimBtn").onclick = actions.onRestart;
-    }
     return;
   }
+
   if (sidebar) sidebar.innerHTML = "";
 
+  // ── quiz ───────────────────────────────────────────────────────────
   if (s.phase === "quiz") {
     const q = s.quiz.questions[s.quiz.currentIndex];
     overlay.innerHTML = `
@@ -103,33 +85,17 @@ export function renderOverlay(overlay, sidebar, state, actions) {
     return;
   }
 
+  // ── feedback ───────────────────────────────────────────────────────
   if (s.phase === "feedback") {
     const hasNextLevel = s.currentLevelIndex < _levels.length - 1;
     const level = _levels[s.currentLevelIndex];
-    const isScoreBased = state.isScoreBased === true;
-  
-    const goalProgress = isScoreBased
-      ? `<p>Components sorted correctly: <strong>${state.score ?? 0}</strong> / ${state.sortedTotal ?? 0}</p>`
-      : (s.goal.targets || []).map(t =>
-          `<p>${t.molecule ?? t.binId}: ${
-            s.createdMoleculeCounts?.[t.molecule] ??
-            state.correctDrops?.[t.binId] ?? 0
-          }/${t.targetCount}</p>`
-        ).join("");
-  
-    const simStats = !isScoreBased ? `
-      <p>Atoms spawned: ${s.stats.atomsSpawned}</p>
-      <p>Valid bonds formed: ${s.stats.validBonds}</p>
-    ` : '';
-  
+    const gameStats = _adapter?.renderFeedbackStats?.(state) ?? "";
+
     overlay.innerHTML = `
       <div class="panel">
         <h2>Feedback</h2>
         <p>Quiz score: ${s.quiz.score}/${s.quiz.questions.length}</p>
-        ${simStats}
-        <div class="goal-progress">
-          ${goalProgress}
-        </div>
+        ${gameStats}
         ${level?.funFact ? `
           <div class="fun-fact">
             <strong>Did you know?</strong>
@@ -138,7 +104,9 @@ export function renderOverlay(overlay, sidebar, state, actions) {
         ` : ""}
         <div class="feedback-actions">
           <button id="restartSessionBtn" type="button">Restart session</button>
-          ${hasNextLevel ? `<button id="nextLevelBtn" type="button">Next level</button>` : ""}
+          ${hasNextLevel
+            ? `<button id="nextLevelBtn" type="button">Next level</button>`
+            : ""}
         </div>
       </div>
     `;
@@ -205,22 +173,16 @@ export function resetSessionData(state) {
   state.session.simEndedAtMs = null;
   state.session.isTrackingProgress = false;
 
-  state.session.createdMoleculeCounts = { H2: 0, Cl2: 0, HCl: 0, O2: 0, H2O: 0 };
-
-  state.session.inventory = { H: 0, O: 0, Cl: 0, ...level.inventory };
-  state.session.allowedAtomTypes = [...(level.allowedAtomTypes ?? [])];
-  state.session.selectedSpawnType = level.allowedAtomTypes?.[0] ?? null;
-  state.session.inputMode = "spawn";
+  // reset to empty -- adapter fills its own keys in resetGame()
+  state.session.createdItemCounts = {};
+  state.session.stats = {};
 
   state.session.quiz.currentIndex = 0;
   state.session.quiz.answers = [];
   state.session.quiz.score = 0;
   state.session.quiz.questions = level.quizQuestions;
 
-  state.session.stats.atomsSpawned = 0;
-  state.session.stats.validBonds = 0;
-  state.session.stats.invalidBondAttempts = 0;
-  state.session.stats.targetMoleculesFormed = 0;
+
 }
 
 export function restartSession(state, telemetry) {
