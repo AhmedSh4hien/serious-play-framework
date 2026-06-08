@@ -13,8 +13,7 @@ import {
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL);
-console.log('SUPABASE KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY);
+
 async function loadLevels(gameId) {
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/levels?game_id=eq.${gameId}&order=sort_order.asc`,

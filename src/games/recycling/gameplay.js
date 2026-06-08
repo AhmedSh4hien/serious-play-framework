@@ -103,7 +103,7 @@ export function initComponents(app, state, telemetry) {
 function spawnNext(app, state, telemetry) {
   if (state.session.phase !== 'simulation') return;
   if (state.componentQueue.length === 0) {
-    const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
+    const level = state.session._levelData ?? LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
     state.componentQueue = shuffle([...level.components, ...level.components]);
   }
 

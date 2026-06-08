@@ -15,11 +15,17 @@
  */
 
 export function validateLevel(level) {
-  const required = ["id", "title", "prompt", "goal", "quizQuestions"];
+  const required = ["id", "title", "prompt", "goal"];
   for (const key of required) {
     if (!(key in level)) throw new Error(`Level missing required field: "${key}"`);
   }
-  if (!Array.isArray(level.goal?.targets)) throw new Error(`Level "${level.id}" goal.targets must be an array`);
-  if (!Array.isArray(level.quizQuestions)) throw new Error(`Level "${level.id}" quizQuestions must be an array`);
+  if (!Array.isArray(level.goal?.targets)) {
+    throw new Error(`Level "${level.id}" goal.targets must be an array`);
+  }
+  // quiz questions: accept either casing from Supabase or local config
+  const quiz = level.quizQuestions ?? level.quiz_questions;
+  if (!Array.isArray(quiz)) {
+    throw new Error(`Level "${level.id}" quizQuestions must be an array`);
+  }
   return level;
 }

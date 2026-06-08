@@ -130,7 +130,10 @@ const adapter = {
       { canBond, getPairMolecule },
       (a, b) => {
         onBond({
-          a, b, state, physics,
+          a,
+          b,
+          state,
+          physics,
           telemetry: { event: api.logEvent },
           onUiChange: () => {
             renderHudIfNeeded(true);
@@ -143,7 +146,9 @@ const adapter = {
       onSpawn: (x, y) => {
         if (state.session.phase !== "simulation") return;
         spawnAtomAt({
-          x, y, state,
+          x,
+          y,
+          state,
           telemetry: { event: api.logEvent },
           onUiChange: () => renderHudIfNeeded(true),
         });
@@ -159,10 +164,9 @@ const adapter = {
     // chemistry-specific session fields
     state.session.inventory = { H: 0, O: 0, Cl: 0, ...(level.inventory ?? {}) };
     state.session.allowedAtomTypes = [
-      ...(level.allowedAtomTypes ?? level.allowed_atom_types ?? ["H"])
+      ...(level.allowedAtomTypes ?? level.allowed_atom_types ?? ["H"]),
     ];
-    state.session.selectedSpawnType = 
-      state.session.allowedAtomTypes[0] ?? null;
+    state.session.selectedSpawnType = state.session.allowedAtomTypes[0] ?? null;
     state.session.inputMode = "spawn";
 
     // createdItemCounts keyed by molecule name for this level
@@ -186,7 +190,26 @@ const adapter = {
   // called every frame during simulation
   updateGame(dt, state, api) {
     const t = performance.now();
-
+    const s = state.session;
+    if (s.phase === "simulation") {
+      const currentType = s.selectedSpawnType;
+      if (currentType && (s.inventory[currentType] ?? 0) <= 0) {
+        // find next type with remaining inventory
+        const nextType = s.allowedAtomTypes.find(
+          (t) => (s.inventory[t] ?? 0) > 0
+        );
+        if (nextType) {
+          s.selectedSpawnType = nextType;
+          renderHudIfNeeded(true);
+        } else {
+          // nothing left — switch to drag mode
+          if (s.inputMode !== "drag") {
+            s.inputMode = "drag";
+            renderHudIfNeeded(true);
+          }
+        }
+      }
+    }
     decayIntermediateBonds({ now: t, state, physics });
 
     finalizeWaterMolecules({
@@ -215,7 +238,9 @@ const adapter = {
     const rows = (s.goal.targets || [])
       .map(
         (t) =>
-          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${t.targetCount}</p>`
+          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${
+            t.targetCount
+          }</p>`
       )
       .join("");
 
@@ -233,7 +258,9 @@ const adapter = {
     const rows = (s.goal.targets || [])
       .map(
         (t) =>
-          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${t.targetCount}</p>`
+          `<p>${t.molecule}: ${s.createdItemCounts?.[t.molecule] ?? 0} / ${
+            t.targetCount
+          }</p>`
       )
       .join("");
 
@@ -253,7 +280,8 @@ const fw = await createFramework({
   sidebar,
   state,
   onTelemetryFlush: ({ success, eventCount }) => {
-    if (success) console.info(`[chemistry] telemetry flushed: ${eventCount} events`);
+    if (success)
+      console.info(`[chemistry] telemetry flushed: ${eventCount} events`);
   },
 });
 
