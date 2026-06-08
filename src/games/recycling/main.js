@@ -1,6 +1,5 @@
 import * as PIXI from "pixi.js";
 import { state } from "./state.js";
-import { LEVELS } from "./levelsConfig.js";
 import { preloadAssets, resetWorld } from "./gameplay.js";
 import { startTimer, checkTimedOut, getRemainingSeconds } from "./recycling.js";
 import { createFramework } from "../../framework/createFramework.js";
@@ -11,6 +10,9 @@ let app;
 let appReady = false; // ← NEW
 let timerText = null;
 let fwApi;
+
+const container = document.getElementById("overlay-root");
+const sidebar = document.getElementById("sidebar");
 
 // ── Pixi timer overlay ───────────────────────────────────────────────────────
 
@@ -78,6 +80,7 @@ const adapter = {
   },
 
   resetGame(state, level) {
+    state.session._levelData = level;
     state.score = 0;
     state.sortedTotal = 0;
     state.correctDrops = {};
@@ -128,16 +131,14 @@ const adapter = {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
-const fw = createFramework({
-  levels: LEVELS,
+const fw = await createFramework({
+  gameId: "recycling",
   adapter,
-  container: document.getElementById("overlay-root"),
-  sidebar: document.getElementById("sidebar"),
+  container,
+  sidebar,
   state,
   onTelemetryFlush: ({ success, eventCount }) => {
-    if (success)
-      console.info(`[recycling] telemetry flushed: ${eventCount} events`);
+    if (success) console.info(`[recycling] telemetry flushed: ${eventCount} events`);
   },
 });
-
 fw.start();

@@ -26,11 +26,24 @@ export function createTelemetry({ getState, onFlush }) {
 
   function sample() {
     const s = getState();
+    const session = s.session ?? {};
+  
+    // generic progress: how many targets are complete
+    const targets = session.goal?.targets ?? [];
+    const counts = session.createdItemCounts ?? {};
+    const targetsComplete = targets.filter(t => {
+      const key = t.molecule ?? t.binId ?? t.id;
+      return (counts[key] ?? 0) >= (t.targetCount ?? t.count ?? 1);
+    }).length;
+  
     telemetry.samples.push({
       t: nowMs(),
-      atoms: s.atoms?.length ?? 0,
-      bonds: s.bonds?.length ?? 0,
       fps: s.fps ?? 0,
+      phase: session.phase ?? null,
+      targetsComplete,
+      targetsTotal: targets.length,
+      // game can add extra fields via state.telemetrySample (optional hook)
+      ...(s.telemetrySample ?? {}),
     });
   }
 

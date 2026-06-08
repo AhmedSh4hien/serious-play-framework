@@ -34,7 +34,7 @@ function createAtom(state, typeId, x, y) {
 export function initAtoms(state, canvas) {
   state.nextAtomId = 0;
   const level = LEVELS[state.session.currentLevelIndex] ?? LEVELS[0];
-  const startingAtoms = level.startingAtoms ?? [];
+  const startingAtoms = level.startingAtoms ?? level.starting_atoms ?? [];
 
   for (const entry of startingAtoms) {
     const count = entry.count ?? 1;

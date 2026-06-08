@@ -19,7 +19,6 @@ import {
 } from "./gameplay.js";
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
-import { LEVELS } from "./levelsConfig.js";
 import { renderChemistryHud } from "./chemistryUi.js";
 
 const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
@@ -158,9 +157,12 @@ const adapter = {
   // called on every restart and level change
   resetGame(state, level) {
     // chemistry-specific session fields
-    state.session.inventory = { H: 0, O: 0, Cl: 0, ...level.inventory };
-    state.session.allowedAtomTypes = [...(level.allowedAtomTypes ?? [])];
-    state.session.selectedSpawnType = level.allowedAtomTypes?.[0] ?? null;
+    state.session.inventory = { H: 0, O: 0, Cl: 0, ...(level.inventory ?? {}) };
+    state.session.allowedAtomTypes = [
+      ...(level.allowedAtomTypes ?? level.allowed_atom_types ?? ["H"])
+    ];
+    state.session.selectedSpawnType = 
+      state.session.allowedAtomTypes[0] ?? null;
     state.session.inputMode = "spawn";
 
     // createdItemCounts keyed by molecule name for this level
@@ -244,12 +246,12 @@ const adapter = {
 };
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
-const fw = createFramework({
-  levels: LEVELS,
+const fw = await createFramework({
+  gameId: "chemistry",
   adapter,
   container,
   sidebar,
-  state,   // ← pass it in so framework uses the same object
+  state,
   onTelemetryFlush: ({ success, eventCount }) => {
     if (success) console.info(`[chemistry] telemetry flushed: ${eventCount} events`);
   },

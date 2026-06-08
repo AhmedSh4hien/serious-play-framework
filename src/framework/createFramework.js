@@ -11,19 +11,45 @@ import {
   goToNextLevel,
 } from "./sessionUi.js";
 
-export function createFramework({
-  levels,
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+console.log('SUPABASE URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('SUPABASE KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY);
+async function loadLevels(gameId) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/levels?game_id=eq.${gameId}&order=sort_order.asc`,
+    {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    }
+  );
+  if (!res.ok)
+    throw new Error(`[framework] Failed to load levels for game: "${gameId}"`);
+  const levels = await res.json();
+  if (!levels.length)
+    throw new Error(`[framework] No levels found for game: "${gameId}"`);
+  return levels;
+}
+
+export async function createFramework({
+  gameId,
   adapter,
   container,
   sidebar,
   state: externalState,
   onTelemetryFlush,
 }) {
+  const levels = await loadLevels(gameId);
   if (!levels?.length) throw new Error("[framework] levels array is required");
   if (!adapter) throw new Error("[framework] adapter is required");
-  if (typeof adapter.initGame !== "function") throw new Error("[framework] adapter.initGame() is required");
-  if (typeof adapter.resetGame !== "function") throw new Error("[framework] adapter.resetGame() is required");
-  if (typeof adapter.updateGame !== "function") throw new Error("[framework] adapter.updateGame() is required");
+  if (typeof adapter.initGame !== "function")
+    throw new Error("[framework] adapter.initGame() is required");
+  if (typeof adapter.resetGame !== "function")
+    throw new Error("[framework] adapter.resetGame() is required");
+  if (typeof adapter.updateGame !== "function")
+    throw new Error("[framework] adapter.updateGame() is required");
 
   const state = externalState ?? createFrameworkState();
 
@@ -63,12 +89,14 @@ export function createFramework({
     sidebar.querySelector("#restartSimBtn").onclick = actions.onRestart;
   }
 
-
   function refreshSidebar() {
     if (!sidebar) return;
     const gameContent = adapter.renderSidebarContent?.(state) ?? "";
     const panel = sidebar.querySelector(".panel--sidebar");
-    if (!panel) { writeSidebar(); return; }
+    if (!panel) {
+      writeSidebar();
+      return;
+    }
     // update only the content area div, not the buttons
     let contentDiv = panel.querySelector(".sidebar-game-content");
     if (!contentDiv) {
@@ -148,17 +176,17 @@ export function createFramework({
 
   return {
     start() {
-        adapter.initGame(state, api);
-        resetSessionData(state);
-        const level = levels[state.session.currentLevelIndex ?? 0];
-        adapter.resetGame(state, level);   // ← add this
-        renderOverlay(overlay, sidebar, state, actions);
-        rafId = requestAnimationFrame(loop);
-        telemetry.event("session_start", {
-          levelId: levels[0]?.id,
-          totalLevels: levels.length,
-        });
-      },
+      adapter.initGame(state, api);
+      resetSessionData(state);
+      const level = levels[state.session.currentLevelIndex ?? 0];
+      adapter.resetGame(state, level); // ← add this
+      renderOverlay(overlay, sidebar, state, actions);
+      rafId = requestAnimationFrame(loop);
+      telemetry.event("session_start", {
+        levelId: levels[0]?.id,
+        totalLevels: levels.length,
+      });
+    },
     stop() {
       if (rafId) cancelAnimationFrame(rafId);
       telemetry.flushToSupabase();

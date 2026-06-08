@@ -180,8 +180,7 @@ export function resetSessionData(state) {
   state.session.quiz.currentIndex = 0;
   state.session.quiz.answers = [];
   state.session.quiz.score = 0;
-  state.session.quiz.questions = level.quizQuestions;
-
+  state.session.quiz.questions = level.quizQuestions ?? level.quiz_questions ?? [];
 
 }
 
