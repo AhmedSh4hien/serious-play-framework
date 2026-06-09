@@ -54,6 +54,7 @@ export async function createFramework({
 
   const telemetry = createTelemetry({
     getState: () => state,
+    gameId,
     onFlush: onTelemetryFlush,
   });
 
@@ -65,6 +66,17 @@ export async function createFramework({
     finishSimulation: () => {
       goToQuiz(state, telemetry);
       renderOverlay(overlay, sidebar, state, actions);
+    },
+    notifyGoalComplete: () => {
+      const goal = state.session.goal;
+      if (goal.completed) return; 
+      goal.completed = true;
+      goal.completedAtMs = performance.now();
+      telemetry.event("goal_completed", {
+        levelIndex: state.session.currentLevelIndex ?? 0,
+        levelId: levels[state.session.currentLevelIndex]?.id,
+      });
+      writeSidebar();
     },
   };
 
@@ -128,13 +140,17 @@ export async function createFramework({
       writeSidebar();
     },
     onFinishSimulation() {
-      goToQuiz(state, telemetry);
-      renderOverlay(overlay, sidebar, state, actions);
-    },
-    onAnswer(selectedIndex) {
-      answerQuestion(state, telemetry, selectedIndex);
-      renderOverlay(overlay, sidebar, state, actions);
-    },
+        goToQuiz(state, telemetry);
+        renderOverlay(overlay, sidebar, state, actions);
+      },
+      onAnswer(selectedIndex) {
+        const wasInQuiz = state.session.phase === 'quiz';
+        answerQuestion(state, telemetry, selectedIndex);
+        if (wasInQuiz && state.session.phase === 'feedback') {
+          telemetry.flushToSupabase();
+        }
+        renderOverlay(overlay, sidebar, state, actions);
+      },
     onRestart() {
       restartSession(state, telemetry);
       const level = levels[state.session.currentLevelIndex ?? 0];
@@ -143,12 +159,12 @@ export async function createFramework({
       writeSidebar();
     },
     onNextLevel() {
-      goToNextLevel(state, telemetry);
-      const level = levels[state.session.currentLevelIndex ?? 0];
-      adapter.resetGame(state, level);
-      renderOverlay(overlay, sidebar, state, actions);
-      writeSidebar();
-    },
+        goToNextLevel(state, telemetry);
+        const level = levels[state.session.currentLevelIndex ?? 0];
+        adapter.resetGame(state, level);
+        renderOverlay(overlay, sidebar, state, actions);
+        writeSidebar();
+      },
   };
 
   // ── game loop ────────────────────────────────────────────────────────

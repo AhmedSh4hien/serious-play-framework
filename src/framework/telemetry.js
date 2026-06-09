@@ -1,7 +1,7 @@
 const SUPABASE_URL = "https://wezkyyksokbacubndhiy.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_tPfESuI4tGwQy0EMPhwHUA_L31qYaqi";
 
-export function createTelemetry({ getState, onFlush }) {
+export function createTelemetry({ getState,gameId, onFlush }) {
   const sessionId = (
     crypto?.randomUUID?.() ?? `sess_${Date.now()}_${Math.random()}`
   ).toString();
@@ -11,6 +11,7 @@ export function createTelemetry({ getState, onFlush }) {
   const telemetry = {
     schema: "serious-play-framework-v1",
     sessionId,
+    gameId: gameId ?? "unknown",
     startedAtIso: new Date().toISOString(),
     events: [],
     samples: [],
@@ -27,15 +28,15 @@ export function createTelemetry({ getState, onFlush }) {
   function sample() {
     const s = getState();
     const session = s.session ?? {};
-  
+
     // generic progress: how many targets are complete
     const targets = session.goal?.targets ?? [];
     const counts = session.createdItemCounts ?? {};
-    const targetsComplete = targets.filter(t => {
+    const targetsComplete = targets.filter((t) => {
       const key = t.molecule ?? t.binId ?? t.id;
       return (counts[key] ?? 0) >= (t.targetCount ?? t.count ?? 1);
     }).length;
-  
+
     telemetry.samples.push({
       t: nowMs(),
       fps: s.fps ?? 0,
@@ -71,6 +72,7 @@ export function createTelemetry({ getState, onFlush }) {
           session_id: telemetry.sessionId,
           schema_version: telemetry.schema,
           started_at_iso: telemetry.startedAtIso,
+          game_id: telemetry.gameId,
           events: telemetry.events,
           samples: telemetry.samples,
         }),
@@ -79,6 +81,7 @@ export function createTelemetry({ getState, onFlush }) {
       if (!res.ok) {
         const err = await res.text();
         console.warn("[telemetry] flush failed:", err);
+        flushed = false; // ← allow retry
         onFlush?.({ success: false, error: err });
       } else {
         console.info(`[telemetry] flushed ${telemetry.events.length} events`);
@@ -86,6 +89,7 @@ export function createTelemetry({ getState, onFlush }) {
       }
     } catch (e) {
       console.warn("[telemetry] flush error:", e);
+      flushed = false; // ← allow retry
       onFlush?.({ success: false, error: e });
     }
   }
@@ -108,24 +112,29 @@ export function createTelemetry({ getState, onFlush }) {
 
   window.addEventListener("beforeunload", () => {
     if (flushed) return;
-    try {
-      sample();
-      event("session_end");
-      const payload = JSON.stringify({
+    flushed = true;
+    sample();
+    event("session_end_unload");
+    fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
+      method: "POST",
+      keepalive: true, // ← survives page close
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
         session_id: telemetry.sessionId,
         schema_version: telemetry.schema,
         started_at_iso: telemetry.startedAtIso,
+        game_id: telemetry.gameId, 
         events: telemetry.events,
         samples: telemetry.samples,
-      });
-      navigator.sendBeacon(
-        `${SUPABASE_URL}/rest/v1/telemetry_events`,
-        new Blob([payload], { type: "application/json" })
-      );
-    } catch {}
+      }),
+    }).catch(() => {});
     clearInterval(sampleInterval);
   });
-
 
   return {
     event,

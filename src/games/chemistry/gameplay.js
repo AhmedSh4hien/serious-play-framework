@@ -228,15 +228,7 @@ export function onBond({ a, b, state, physics, telemetry, onUiChange }) {
     !goal.completed &&
     allTargetsCompleted
   ) {
-    goal.completed = true;
-    goal.completedAtMs = performance.now();
-    telemetry.event("goal_completed", {
-      targets: targets.map((t) => ({
-        molecule: t.molecule,
-        targetCount: t.targetCount,
-        actualCount: state.session.createdItemCounts[t.molecule] || 0,
-      })),
-    });
+    telemetry.notifyGoalComplete?.();
   }
 
   if (state.session.phase === "simulation") {

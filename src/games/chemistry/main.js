@@ -134,10 +134,11 @@ const adapter = {
           b,
           state,
           physics,
-          telemetry: { event: api.logEvent },
-          onUiChange: () => {
-            renderHudIfNeeded(true);
+          telemetry: {
+            event: api.logEvent,
+            notifyGoalComplete: () => api.notifyGoalComplete(),
           },
+          onUiChange: () => renderHudIfNeeded(true), 
         });
       }
     );
