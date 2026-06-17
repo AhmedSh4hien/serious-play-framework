@@ -1,7 +1,51 @@
 const SUPABASE_URL = "https://wezkyyksokbacubndhiy.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_tPfESuI4tGwQy0EMPhwHUA_L31qYaqi";
 
-export function createTelemetry({ getState,gameId, onFlush }) {
+const QUEUE_KEY = "telemetry_queue";
+
+function loadQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]"); }
+  catch { return []; }
+}
+
+function saveQueue(q) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+  catch { /* storage full — drop silently */ }
+}
+
+async function postPayload(payload, keepalive = false) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
+    method: "POST",
+    keepalive,
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function drainQueue() {
+  const queue = loadQueue();
+  if (!queue.length) return;
+  const remaining = [];
+  for (const payload of queue) {
+    try { await postPayload(payload); }
+    catch { remaining.push(payload); }
+  }
+  saveQueue(remaining);
+  if (queue.length !== remaining.length)
+    console.info(`[telemetry] drained ${queue.length - remaining.length} queued session(s)`);
+}
+
+
+export function createTelemetry({ getState, gameId, onFlush }) {
+  // attempt to send anything that failed in a previous session
+  drainQueue();
+
   const sessionId = (
     crypto?.randomUUID?.() ?? `sess_${Date.now()}_${Math.random()}`
   ).toString();
@@ -28,8 +72,6 @@ export function createTelemetry({ getState,gameId, onFlush }) {
   function sample() {
     const s = getState();
     const session = s.session ?? {};
-
-    // generic progress: how many targets are complete
     const targets = session.goal?.targets ?? [];
     const counts = session.createdItemCounts ?? {};
     const targetsComplete = targets.filter((t) => {
@@ -43,9 +85,19 @@ export function createTelemetry({ getState,gameId, onFlush }) {
       phase: session.phase ?? null,
       targetsComplete,
       targetsTotal: targets.length,
-      // game can add extra fields via state.telemetrySample (optional hook)
       ...(s.telemetrySample ?? {}),
     });
+  }
+
+  function buildPayload() {
+    return {
+      session_id: telemetry.sessionId,
+      schema_version: telemetry.schema,
+      started_at_iso: telemetry.startedAtIso,
+      game_id: telemetry.gameId,
+      events: telemetry.events,
+      samples: telemetry.samples,
+    };
   }
 
   let flushed = false;
@@ -59,37 +111,18 @@ export function createTelemetry({ getState,gameId, onFlush }) {
       totalEvents: telemetry.events.length + 1,
     });
 
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({
-          session_id: telemetry.sessionId,
-          schema_version: telemetry.schema,
-          started_at_iso: telemetry.startedAtIso,
-          game_id: telemetry.gameId,
-          events: telemetry.events,
-          samples: telemetry.samples,
-        }),
-      });
+    const payload = buildPayload();
 
-      if (!res.ok) {
-        const err = await res.text();
-        console.warn("[telemetry] flush failed:", err);
-        flushed = false; // ← allow retry
-        onFlush?.({ success: false, error: err });
-      } else {
-        console.info(`[telemetry] flushed ${telemetry.events.length} events`);
-        onFlush?.({ success: true, eventCount: telemetry.events.length });
-      }
+    try {
+      await postPayload(payload);
+      console.info(`[telemetry] flushed ${telemetry.events.length} events`);
+      onFlush?.({ success: true, eventCount: telemetry.events.length });
     } catch (e) {
-      console.warn("[telemetry] flush error:", e);
-      flushed = false; // ← allow retry
+      console.warn("[telemetry] flush failed, queuing locally:", e.message ?? e);
+      const q = loadQueue();
+      q.push(payload);
+      saveQueue(q);
+      flushed = false; // allow manual retry
       onFlush?.({ success: false, error: e });
     }
   }
@@ -111,29 +144,31 @@ export function createTelemetry({ getState,gameId, onFlush }) {
   const sampleInterval = setInterval(() => sample(), 1000);
 
   window.addEventListener("beforeunload", () => {
+    clearInterval(sampleInterval);
     if (flushed) return;
     flushed = true;
     sample();
     event("session_end_unload");
+
+    const payload = buildPayload();
+
+    // best-effort live send
     fetch(`${SUPABASE_URL}/rest/v1/telemetry_events`, {
       method: "POST",
-      keepalive: true, // ← survives page close
+      keepalive: true,
       headers: {
         "Content-Type": "application/json",
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({
-        session_id: telemetry.sessionId,
-        schema_version: telemetry.schema,
-        started_at_iso: telemetry.startedAtIso,
-        game_id: telemetry.gameId, 
-        events: telemetry.events,
-        samples: telemetry.samples,
-      }),
-    }).catch(() => {});
-    clearInterval(sampleInterval);
+      body: JSON.stringify(payload),
+    }).catch(() => {
+      // keepalive fetch failed — queue for next session
+      const q = loadQueue();
+      q.push(payload);
+      saveQueue(q);
+    });
   });
 
   return {
@@ -141,8 +176,6 @@ export function createTelemetry({ getState,gameId, onFlush }) {
     sample,
     downloadJson,
     flushToSupabase,
-    get data() {
-      return telemetry;
-    },
+    get data() { return telemetry; },
   };
 }

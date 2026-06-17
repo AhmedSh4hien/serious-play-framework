@@ -15,21 +15,21 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 async function loadLevels(gameId) {
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/levels?game_id=eq.${gameId}&order=sort_order.asc`,
-    {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    }
-  );
-  if (!res.ok)
-    throw new Error(`[framework] Failed to load levels for game: "${gameId}"`);
-  const levels = await res.json();
-  if (!levels.length)
-    throw new Error(`[framework] No levels found for game: "${gameId}"`);
-  return levels;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/levels?game_id=eq.${gameId}&order=sort_order.asc`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      signal: AbortSignal.timeout(5000), // don't wait forever for a cold start
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const levels = await res.json();
+    if (!levels.length) throw new Error('empty');
+    return levels;
+  } catch (err) {
+    console.warn(`[framework] Supabase unavailable (${err.message}), loading fallback levels`);
+    const fallback = await fetch(`./levels/${gameId}.json`);
+    if (!fallback.ok) throw new Error(`[framework] No fallback levels found for "${gameId}"`);
+    return fallback.json();
+  }
 }
 
 export async function createFramework({

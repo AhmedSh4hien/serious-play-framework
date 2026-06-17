@@ -19,7 +19,7 @@ import {
 } from "./gameplay.js";
 import { installInput } from "../../ui/input.js";
 import "../../style.css";
-import { renderChemistryHud } from "./chemistryUi.js";
+import { renderChemistryHud } from "./chemistryui.js";
 
 const renderer = USE_PIXI ? PixiRenderer : CanvasRenderer;
 

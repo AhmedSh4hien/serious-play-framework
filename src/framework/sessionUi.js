@@ -96,10 +96,10 @@ export function renderOverlay(overlay, sidebar, state, actions) {
         <h2>Feedback</h2>
         <p>Quiz score: ${s.quiz.score}/${s.quiz.questions.length}</p>
         ${gameStats}
-        ${level?.funFact ? `
+        ${level?.fun_fact ? `
           <div class="fun-fact">
             <strong>Did you know?</strong>
-            <p>${level.funFact}</p>
+            <p>${level.fun_fact}</p>
           </div>
         ` : ""}
         <div class="feedback-actions">
