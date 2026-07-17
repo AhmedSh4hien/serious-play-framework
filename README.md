@@ -4,8 +4,6 @@ A modular, web-based game framework for serious games with built-in telemetry an
 
 Developed as part of a Master's thesis at the University of Applied Sciences Upper Austria (Hagenberg), Interactive Media program.
 
-![SGFramework.js overview](./assets/overview.png)
-
 ## Overview
 
 SGFramework.js addresses a common problem in serious game development: existing web-based game engines and frameworks handle rendering and physics well, but leave session handling, structured progression, and telemetry to be re-implemented separately for every project. SGFramework.js treats these concerns as first-class, framework-owned features.
@@ -28,11 +26,13 @@ Two prototype games were built to validate the design:
 
 Both games use the same framework core without modification, demonstrating that session handling, telemetry, and level progression are reusable across different rendering backends.
 
-| Chemistry game | Recycling game |
+Chemistry game 
 
-|---|---|
+![Chemistry game](./assets/chemistry.png) 
 
-| ![Chemistry game](./assets/chemistry.png) | ![Recycling game](./assets/recycle.png) |
+Recycling game
+
+![Recycling game](./assets/recycle.png) 
 
 ## Project Structure
 
