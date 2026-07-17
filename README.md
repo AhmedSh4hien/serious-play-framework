@@ -20,9 +20,9 @@ Games connect to the framework through a small adapter interface. The framework 
 
 Two prototype games were built to validate the design:
 
-- **Chemistry game** — a physics-driven atom-building simulation rendered with the HTML5 Canvas 2D API and Matter.js
+- **Chemistry game** : a physics-driven atom-building simulation rendered with the HTML5 Canvas 2D API and Matter.js
 
-- **Recycling game** — an electronics sorting game rendered with PixiJS
+- **Recycling game** : an electronics sorting game rendered with PixiJS
 
 Both games use the same framework core without modification, demonstrating that session handling, telemetry, and level progression are reusable across different rendering backends.
 
